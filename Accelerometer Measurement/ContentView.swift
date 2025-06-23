@@ -29,7 +29,7 @@ var kineticEnergy: Double = 0.0 // Assumed starting KE
 class storedData: ObservableObject {
     @Published var displayData: [recordedData] = []
     
-    func add(_ data: recordedData) {
+    func addToDisplay(_ data: recordedData) {
         DispatchQueue.main.async {
             self.displayData.append(data)
         }
@@ -39,9 +39,10 @@ class storedData: ObservableObject {
 struct ContentView: View {
     let motionManager = CMMotionManager()
     
+    // Real-time repositry for data to be displayed on the charts
     @StateObject var stored = storedData()
     
-    // Storing accelerometer Data
+    // Recording accelerometer Data
     @State private var accelerometerData: (x: Double, y: Double, z: Double) = (-1, 1, 0)
     @State private var xData: (recordedData) = recordedData(value: 0, index: "X")
     @State private var yData: (recordedData) = recordedData(value: 0, index: "Y")
@@ -71,21 +72,27 @@ struct ContentView: View {
     
     // Table and export variables
     @State private var csvText: String = ""
-    @State private var tableContents: [tableText] = [tableText(T: String(0.0), X: String(0), Y: String(0), Z: String(0), M: String(0), dM: String(0), P: String(0), KE: String(0))]
+    
+    var startingSegment: [String] = Array()
+    @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
     
     // What names do the data entries have and how many are displayed per title
     static private let dataEntries: [String] = ["Acclerometer Data (ms2)", "Change in Magnitude", "Energy (J)", "Current (A)", "Voltage (V)"]
     static private let dataEntryCount: [Int] = [3, 2, 2, 0, 0]
     
-    // What charts / tables are currently active
+    // What charts and tables are currently active
     @State private var chartDisplays: [Bool] = [true, true] + Array(repeating: false, count: dataEntries.count - 2)
     @State private var tableDisplays: [Bool] = [true, true] + Array(repeating: false, count: dataEntries.count - 2)
     
     var body: some View {
         VStack {
             Text("Accelerometer Data").font(.largeTitle)
-            Text("Duration: \(String(format: "%.1f", counter)) - Update: \(String(format: "%.2f", dRand))")
+            Text("Duration: \(String(format: "%.1f", counter))s - Update: \(String(format: "%.2f", dRand))")
             HStack {
+                Button("Settings and Infromation", systemImage: "gearshape.fill") {
+                    
+                }
+                .labelStyle(.iconOnly)
                 // For changing displayed charts; only allow two to be displayed at once
                 Menu("Charts") {
                     ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
@@ -171,30 +178,30 @@ struct ContentView: View {
                     
                     // Save raw accelerometer data
                     self.xData = recordedData(value: bulkAccelData[0], index: "X")
-                    stored.add(xData)
+                    stored.addToDisplay(xData)
                     
                     self.yData = recordedData(value: bulkAccelData[1], index: "Y")
-                    stored.add(yData)
+                    stored.addToDisplay(yData)
                     
                     self.zData = recordedData(value: bulkAccelData[2], index: "Z")
-                    stored.add(zData)
+                    stored.addToDisplay(zData)
                     
                     // Find magnitude from raw accelerometer data
                     self.mData = recordedData(value: abs(sqrt(bulkAccelData.reduce(0) {$0 + pow($1, 2)}) - 1), index: "M")
-                    stored.add(mData)
+                    stored.addToDisplay(mData)
                     
                     // Find change in magnitude between steps
                     self.dmData = recordedData(value: self.mData.value - self.oldMData, index: "∆M")
-                    stored.add(dmData)
+                    stored.addToDisplay(dmData)
                     
                     self.oldMData = self.mData.value
                     
                     self.pData = recordedData(value: 1 / 2 * pow(self.dmData.value * stepTime, 2) * stepTime, index: "P")
-                    stored.add(pData)
+                    stored.addToDisplay(pData)
                     
                     kineticEnergy += (self.pData.value / stepTime) * (self.dmData.value > 0 ? 1 : -1)
                     self.keData = recordedData(value: kineticEnergy, index: "KE")
-                    stored.add(keData)
+                    stored.addToDisplay(keData)
                 }
             }
         }
@@ -215,6 +222,7 @@ struct ContentView: View {
         accelTimer = nil
         
         // Tablulate data
+        // TODO: p/ke not going to .3 or adding e-3 (FOUND: In specific chart for values they are redefined)
         for (i, _) in stored.displayData.enumerated() {
             if i % recordedValueCount == 0 {
                 let timeString = String(format: "%.1f", stored.displayData[i].time)
@@ -225,14 +233,15 @@ struct ContentView: View {
                 let zString = String(format: "%.3f", stored.displayData[i + 2].value)
                 let mString = String(format: "%.3f", stored.displayData[i + 3].value)
                 let dmString = String(format: "%.3f", stored.displayData[i + 4].value)
-                let pString = String(format: "%.5f", stored.displayData[i + 5].value)
-                let keString = String(format: "%.5f", stored.displayData[i + 6].value)
+                let pString = String(format: "%.3f", stored.displayData[i + 5].value * 1000) + "e-3"
+                let keString = String(format: "%.3f", stored.displayData[i + 6].value * 1000) + "e-3"
                 
                 // Saving row
                 let segment: [String] = [timeString, xString, yString, zString, mString, dmString, pString, keString]
                 
                 csvText += segment.joined(separator: ",") + "\n"
-                tableContents.append(tableText(T: segment[0], X: segment[1], Y: segment[2], Z: segment[3], M: segment[4], dM: segment[5], P: segment[7], KE: segment[6]))
+                
+                tableContents.append(tableText(inputValues: segment))
             }
         }
     }
@@ -367,7 +376,7 @@ struct tables: View {
                         Text(data.dM)
                     }
                     
-                    if tableDisplays[2] {
+                    if tableDisplays[2] { //TODO: Cause of inaccuracy
                         Text(String(format: "%.5f", (Double(data.P) ?? 0) * mass))
                         Text(String(format: "%.5f", (Double(data.KE) ?? 0) * mass))
                     }
@@ -396,19 +405,29 @@ struct tableText: Identifiable {
     let P: String // Specific power from movement
     let KE: String // Specific kinetic energy from change between steps
     let id = UUID()
+    
+    init(inputValues: [String]) {self.T = inputValues[0]
+        self.X = inputValues[1]
+        self.Y = inputValues[2]
+        self.Z = inputValues[3]
+        self.M = inputValues[4]
+        self.dM = inputValues[5]
+        self.P = inputValues[6]
+        self.KE = inputValues[7]
+    }
 }
 
-// Stores accelerometer data based on their time, value, and index indicating what it means
+// Stores accelerometer data based on their time, value, and index
 struct recordedData: Identifiable {
-    let value: Double
-    let index: String
-    let time: Double
+    let value: Double // Magnitude
+    let index: String // What it is
+    let time: Double // When it is
     let id = UUID()
     
     init(value: Double, index: String) {
         self.value = value
         self.index = index
-        self.time = counter
+        self.time = counter // TODO: re-write to remove internal reference to global
     }
 }
 
