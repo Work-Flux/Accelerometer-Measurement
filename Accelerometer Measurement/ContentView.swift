@@ -26,16 +26,20 @@ var mass: Double = 0.1 // Mass in Kg
 var kineticEnergy: Double = 0.0 // Assumed starting KE
 
 // Stores all data which can be displayed
-// TODO: TEST THIS
-@Observable
-class storedData {
-    var displayData: [recordedData] = []
+class storedData: ObservableObject {
+    @Published var displayData: [recordedData] = []
+    
+    func add(_ data: recordedData) {
+        DispatchQueue.main.async {
+            self.displayData.append(data)
+        }
+    }
 }
-
-var displayData = storedData().displayData
 
 struct ContentView: View {
     let motionManager = CMMotionManager()
+    
+    @StateObject var stored = storedData()
     
     // Storing accelerometer Data
     @State private var accelerometerData: (x: Double, y: Double, z: Double) = (-1, 1, 0)
@@ -118,8 +122,24 @@ struct ContentView: View {
                 }
             }
             
-            charts(tableContents: $tableContents, dataEntries: ContentView.dataEntries, dataEntryCount: ContentView.dataEntryCount, chartDisplays: $chartDisplays, tableDisplays: $tableDisplays)
-            tables(tableContents: $tableContents, dataEntries: ContentView.dataEntries, dataEntryCount: ContentView.dataEntryCount, chartDisplays: $chartDisplays, tableDisplays: $tableDisplays)
+            // Add the charts
+            charts(
+                displayedData: stored.displayData,
+                   tableContents: $tableContents,
+                   dataEntries: ContentView.dataEntries,
+                dataEntryCount: ContentView.dataEntryCount,
+                chartDisplays: $chartDisplays,
+                tableDisplays: $tableDisplays
+            )
+            
+            // Add the tables
+            tables(
+                tableContents: $tableContents,
+                dataEntries: ContentView.dataEntries,
+                dataEntryCount: ContentView.dataEntryCount,
+                chartDisplays: $chartDisplays,
+                tableDisplays: $tableDisplays
+            )
         }.padding()
     }
     
@@ -131,7 +151,7 @@ struct ContentView: View {
     func startRecording() {
         // Clear previous values
         tableContents.removeAll()
-        displayData.removeAll()
+        stored.displayData.removeAll()
         counter = 0.0
         kineticEnergy = 0.0
         
@@ -151,20 +171,30 @@ struct ContentView: View {
                     
                     // Save raw accelerometer data
                     self.xData = recordedData(value: bulkAccelData[0], index: "X")
+                    stored.add(xData)
+                    
                     self.yData = recordedData(value: bulkAccelData[1], index: "Y")
+                    stored.add(yData)
+                    
                     self.zData = recordedData(value: bulkAccelData[2], index: "Z")
+                    stored.add(zData)
                     
                     // Find magnitude from raw accelerometer data
                     self.mData = recordedData(value: abs(sqrt(bulkAccelData.reduce(0) {$0 + pow($1, 2)}) - 1), index: "M")
+                    stored.add(mData)
                     
                     // Find change in magnitude between steps
                     self.dmData = recordedData(value: self.mData.value - self.oldMData, index: "∆M")
+                    stored.add(dmData)
+                    
                     self.oldMData = self.mData.value
                     
                     self.pData = recordedData(value: 1 / 2 * pow(self.dmData.value * stepTime, 2) * stepTime, index: "P")
+                    stored.add(pData)
                     
                     kineticEnergy += (self.pData.value / stepTime) * (self.dmData.value > 0 ? 1 : -1)
                     self.keData = recordedData(value: kineticEnergy, index: "KE")
+                    stored.add(keData)
                 }
             }
         }
@@ -179,21 +209,24 @@ struct ContentView: View {
         // Stop updates and timers
         self.motionManager.stopAccelerometerUpdates()
         countTimer?.invalidate()
+        countTimer = nil
+        
         accelTimer?.invalidate()
+        accelTimer = nil
         
         // Tablulate data
-        for (i, _) in displayData.enumerated() {
+        for (i, _) in stored.displayData.enumerated() {
             if i % recordedValueCount == 0 {
-                let timeString = String(format: "%.1f", displayData[i].time)
+                let timeString = String(format: "%.1f", stored.displayData[i].time)
                 
                 // Adding and formatting dependant variables
-                let xString = String(format: "%.3f", displayData[i].value)
-                let yString = String(format: "%.3f", displayData[i + 1].value)
-                let zString = String(format: "%.3f", displayData[i + 2].value)
-                let mString = String(format: "%.3f", displayData[i + 3].value)
-                let dmString = String(format: "%.3f", displayData[i + 4].value)
-                let pString = String(format: "%.5f", displayData[i + 5].value)
-                let keString = String(format: "%.5f", displayData[i + 6].value)
+                let xString = String(format: "%.3f", stored.displayData[i].value)
+                let yString = String(format: "%.3f", stored.displayData[i + 1].value)
+                let zString = String(format: "%.3f", stored.displayData[i + 2].value)
+                let mString = String(format: "%.3f", stored.displayData[i + 3].value)
+                let dmString = String(format: "%.3f", stored.displayData[i + 4].value)
+                let pString = String(format: "%.5f", stored.displayData[i + 5].value)
+                let keString = String(format: "%.5f", stored.displayData[i + 6].value)
                 
                 // Saving row
                 let segment: [String] = [timeString, xString, yString, zString, mString, dmString, pString, keString]
@@ -207,6 +240,9 @@ struct ContentView: View {
 
 // Struct for displaying charts
 struct charts: View {
+    // The stored data
+    var displayedData: [recordedData]
+    
     // What is the contents of the table
     @Binding var tableContents: [tableText]
     
@@ -220,7 +256,7 @@ struct charts: View {
         VStack {
             if chartDisplays[0] {  // Display accelerometer data chart
                 Chart {
-                    ForEach(displayData) { data in
+                    ForEach(displayedData) { data in
                         if data.index == "X" || data.index == "Y" || data.index == "Z" {
                             LineMark(
                                 x: .value("Time", data.time),
@@ -236,7 +272,7 @@ struct charts: View {
             
             if chartDisplays[1] {  // Display ∆M chart
                 Chart {
-                    ForEach(displayData) { data in
+                    ForEach(displayedData) { data in
                         if data.index == "M" || data.index == "∆M" {
                             LineMark(
                                 x: .value("Time", data.time),
@@ -251,7 +287,7 @@ struct charts: View {
             
             if chartDisplays[2] { // Display Equation: Energy chart
                 Chart {
-                    ForEach(displayData) { data in
+                    ForEach(displayedData) { data in
                         if data.index == "P" ||  data.index == "KE" {
                             LineMark(
                                 x: .value("Time", data.time),
@@ -351,14 +387,14 @@ struct tables: View {
 
 // Struct storing data for all potential table columns at a single time
 struct tableText: Identifiable {
-    let T: String
-    let X: String
+    let T: String // Time
+    let X: String // XYZ acceleration
     let Y: String
     let Z: String
-    let M: String
-    let dM: String
-    let P: String
-    let KE: String
+    let M: String // Magnitude of acceleration
+    let dM: String // Change in magnitude between steps
+    let P: String // Specific power from movement
+    let KE: String // Specific kinetic energy from change between steps
     let id = UUID()
 }
 
@@ -373,9 +409,6 @@ struct recordedData: Identifiable {
         self.value = value
         self.index = index
         self.time = counter
-        
-        // Automatically add to list of displayable data when assigned
-        displayData.append(self)
     }
 }
 
