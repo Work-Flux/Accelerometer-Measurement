@@ -9,21 +9,46 @@ import SwiftUI
 import CoreMotion
 import Charts
 
+/*
+ Section for setting initial variables, establishing data structs, and establishing classes for the real-time storage and use of information
+ 
+ Contains:
+    Variables:
+        Current duration
+        Tick rate of timers
+        Count of dependant and non-dependant recorded display variables
+    Struct:
+        Identifiable record of a value at a time and what said value represents
+    Classes:
+        Real-time record of data from accelerometer and calculated from it
+        Real-time settings data which impacts visuals and equations
+ */
+
 // Duration of current recording
 var counter: Double = 0.0
 
 // Tick rate for timers / accelerometer updates
 let stepTime: Double = 0.1
 
-// How many non-dependant variables exist that are recorded
+// How many non-dependant variables exist that are used in displays
 let addedValueCount: Int = 1
 
-// How many dependant variables exist that are recorded
+// How many dependant variables exist that are used in displays
 let recordedValueCount: Int = 7
 
-// Values for Equations
-var mass: Double = 0.1 // Mass in Kg
-var kineticEnergy: Double = 0.0 // Assumed starting KE
+// Stores accelerometer data based on their time, value, and index
+struct recordedData: Identifiable {
+    let value: Double // Magnitude
+    let index: String // What it is
+    let time: Double // When it is
+    let id = UUID()
+    
+    init(value: Double, index: String) {
+        self.value = value
+        self.index = index
+        self.time = counter // TODO: check need / re-write to remove internal reference to global instead of requesting it at use; possibly remove init
+    }
+}
 
 // Stores all data which can be displayed
 class storedData: ObservableObject {
@@ -36,11 +61,56 @@ class storedData: ObservableObject {
     }
 }
 
+// Stores settings data for equations and display
+class settingsData: ObservableObject {
+    @Published var currentSettings: [String: Double] = [
+        // Display settings
+        // TODO: Make display settings
+        // Equation settings
+        "Mass" : 0.15, // Mass in kilograms
+        "Resistance" : 1, // Electrical resistance in ohms
+        "KE_0" : 0 // Starting Kinetic Energy in joules
+    ]
+    
+}
+
+
+/*
+ Section for settings page, main page display, and functions for recording and processing the data
+ 
+ Contains:
+    Structs:
+        Settings pop-up
+        ContentView
+    Functions:
+        Starting and stopping recording, while processing the data from the accelerometers and adding it to the storage
+ 
+ TODO: Add email exporting functionality
+    Possibly integrate into endRecording or settings page
+ TODO: Check viability of having recording function in the ContentView body
+ */
+
+// Settings pop-up page
+struct settings: View {
+    @Binding var popup: Bool
+    
+    var body: some View {
+        Text("Settings")
+        Text("Mass (g)") // Mass displayed in grams, converted to kg
+        Text("Resistance (Ω)") // Resistance displayed in ohms
+        Text("Starting Kinetic Energy (J)") // Assumed starting kinetic energy displayed in joules
+    }
+}
+
+// Main page view
 struct ContentView: View {
     let motionManager = CMMotionManager()
     
     // Real-time repositry for data to be displayed on the charts
     @StateObject var stored = storedData()
+    
+    // Real-time storage for settings data
+    @StateObject var settings = settingsData()
     
     // Recording accelerometer Data
     @State private var accelerometerData: (x: Double, y: Double, z: Double) = (-1, 1, 0)
@@ -67,6 +137,9 @@ struct ContentView: View {
     // If we are recording the accelerometer data
     @State private var recording: Bool = false
     
+    // If we are displaying the settings popup
+    @State private var popup: Bool = false
+    
     // The update variable
     @State private var dRand: Double = 0.0
     
@@ -90,9 +163,12 @@ struct ContentView: View {
             Text("Duration: \(String(format: "%.1f", counter))s - Update: \(String(format: "%.2f", dRand))")
             HStack {
                 Button("Settings and Infromation", systemImage: "gearshape.fill") {
-                    
+                    popup = true
                 }
                 .labelStyle(.iconOnly)
+                .popover(isPresented: $popup) {
+                    Accelerometer_Measurement.settings(popup: $popup)
+                }
                 // For changing displayed charts; only allow two to be displayed at once
                 Menu("Charts") {
                     ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
@@ -129,25 +205,28 @@ struct ContentView: View {
                 }
             }
             
-            // Add the charts
+            // Add the charts to use the real-time data
             charts(
                 displayedData: stored.displayData,
-                   tableContents: $tableContents,
-                   dataEntries: ContentView.dataEntries,
-                dataEntryCount: ContentView.dataEntryCount,
-                chartDisplays: $chartDisplays,
-                tableDisplays: $tableDisplays
-            )
-            
-            // Add the tables
-            tables(
+                currentSettings: settings.currentSettings,
                 tableContents: $tableContents,
                 dataEntries: ContentView.dataEntries,
                 dataEntryCount: ContentView.dataEntryCount,
                 chartDisplays: $chartDisplays,
                 tableDisplays: $tableDisplays
             )
-        }.padding()
+            
+            // Add the tables to use the real-time data
+            tables(
+                currentSettings: settings.currentSettings,
+                tableContents: $tableContents,
+                dataEntries: ContentView.dataEntries,
+                dataEntryCount: ContentView.dataEntryCount,
+                chartDisplays: $chartDisplays,
+                tableDisplays: $tableDisplays
+            )
+        }
+        .padding()
     }
     
     /*
@@ -160,7 +239,9 @@ struct ContentView: View {
         tableContents.removeAll()
         stored.displayData.removeAll()
         counter = 0.0
-        kineticEnergy = 0.0
+        
+        // Set starting kinetic energy to designated settings value
+        var kineticEnergy = settings.currentSettings["KE_0"] ?? 0
         
         // Start timer according to set values
         countTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
@@ -210,7 +291,6 @@ struct ContentView: View {
     /*
      Stops timers and accelerometer recordings
      Tabulates data for display and exporting
-     TODO: Add email exporting functionality
      */
     func stopRecording() {
         // Stop updates and timers
@@ -247,10 +327,24 @@ struct ContentView: View {
     }
 }
 
+
+/*
+ Section for displaying a series of charts to convey details about the acceleration of the device and implications of said acceleration
+ 
+ Contains:
+    Struct grouping charts and displaying them based on selection
+    Structs for the generation of charts according to settings
+ 
+ TODO: Make charts tappable to pop up expanded and scrollable view of the selected one
+ */
+
 // Struct for displaying charts
 struct charts: View {
     // The stored data
     var displayedData: [recordedData]
+    
+    // The settings data
+    var currentSettings: [String : Double]
     
     // What is the contents of the table
     @Binding var tableContents: [tableText]
@@ -263,50 +357,25 @@ struct charts: View {
     
     var body: some View {
         VStack {
-            if chartDisplays[0] {  // Display accelerometer data chart
-                Chart {
-                    ForEach(displayedData) { data in
-                        if data.index == "X" || data.index == "Y" || data.index == "Z" {
-                            LineMark(
-                                x: .value("Time", data.time),
-                                y: .value("Total Count", data.value)
-                            )
-                            .foregroundStyle(by: .value("Index", data.index))
-                            .interpolationMethod(.cardinal)
-                            .opacity(0.8)
-                        }
-                    }
-                }
+            if chartDisplays[0] {  // Display basic accelerometer data chart
+                baseAccelChart(
+                    displayedData: displayedData,
+                    currentSettings: currentSettings
+                )
             }
             
             if chartDisplays[1] {  // Display ∆M chart
-                Chart {
-                    ForEach(displayedData) { data in
-                        if data.index == "M" || data.index == "∆M" {
-                            LineMark(
-                                x: .value("Time", data.time),
-                                y: .value("Total Count", data.value)
-                            )
-                            .foregroundStyle(by: .value("Index", data.index))
-                            .interpolationMethod(.cardinal)
-                        }
-                    }
-                }
+                magnitudeChart(
+                    displayedData: displayedData,
+                    currentSettings: currentSettings
+                )
             }
             
             if chartDisplays[2] { // Display Equation: Energy chart
-                Chart {
-                    ForEach(displayedData) { data in
-                        if data.index == "P" ||  data.index == "KE" {
-                            LineMark(
-                                x: .value("Time", data.time),
-                                y: .value("Total Count", data.value * mass)
-                            )
-                            .foregroundStyle(by: .value("Index", data.index))
-                            .interpolationMethod(.cardinal)
-                        }
-                    }
-                }
+                powerChart(
+                    displayedData: displayedData,
+                    currentSettings: currentSettings
+                )
             }
             
             if chartDisplays[3] { // Display Equation: Current chart
@@ -320,8 +389,96 @@ struct charts: View {
     }
 }
 
+
+// Displays the baseline xyz accelerometer data
+struct baseAccelChart: View {
+    // The stored data
+    var displayedData: [recordedData]
+    
+    // The settings data
+    var currentSettings: [String : Double]
+    
+    var body: some View {
+        Chart {
+            ForEach(displayedData) { data in
+                if data.index == "X" || data.index == "Y" || data.index == "Z" {
+                    LineMark(
+                        x: .value("Time", data.time),
+                        y: .value("Total Count", data.value)
+                    )
+                    .foregroundStyle(by: .value("Index", data.index))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                }
+            }
+        }
+    }
+}
+
+// Displays the accelerometer magnitude and change in magnitude data
+struct magnitudeChart: View {
+    // The stored data
+    var displayedData: [recordedData]
+    
+    // The settings data
+    var currentSettings: [String : Double]
+    
+    var body: some View {
+        Chart {
+            ForEach(displayedData) { data in
+                if data.index == "M" || data.index == "∆M" {
+                    LineMark(
+                        x: .value("Time", data.time),
+                        y: .value("Total Count", data.value)
+                    )
+                    .foregroundStyle(by: .value("Index", data.index))
+                    .interpolationMethod(.cardinal)
+                }
+            }
+        }
+    }
+}
+
+struct powerChart: View {
+    // The stored data
+    var displayedData: [recordedData]
+    
+    // The settings data
+    var currentSettings: [String : Double]
+    
+    var body: some View {
+        Chart {
+            ForEach(displayedData) { data in
+                if data.index == "P" ||  data.index == "KE" {
+                    LineMark(
+                        x: .value("Time", data.time),
+                        y: .value("Total Count", data.value * (currentSettings["Mass"] ?? 1))
+                    )
+                    .foregroundStyle(by: .value("Index", data.index))
+                    .interpolationMethod(.cardinal)
+                }
+            }
+        }
+    }
+}
+
+/*
+ Section for creating a table after ending recording of accelerometer data for manual comparison and checking what would be exported as csv via email
+ 
+ Contains:
+    Main struct for displaying tables
+    Data storage struct for contents and order of data sent to tables
+ 
+ TODO: Check modification of power data based on changing settings
+    Might need re-generation from endRecording
+    Possibly seperate out chart generation into new function
+ */
+
 // Struct for displaying tables
 struct tables: View {
+    // The settings data
+    var currentSettings: [String : Double]
+    
     // What is the contents of the table
     @Binding var tableContents: [tableText]
     
@@ -376,9 +533,9 @@ struct tables: View {
                         Text(data.dM)
                     }
                     
-                    if tableDisplays[2] { //TODO: Cause of inaccuracy
-                        Text(String(format: "%.5f", (Double(data.P) ?? 0) * mass))
-                        Text(String(format: "%.5f", (Double(data.KE) ?? 0) * mass))
+                    if tableDisplays[2] { //TODO: Cause of inaccuracy from stopRecording log
+                        Text(String(format: "%.5f", (Double(data.P) ?? 0) * (currentSettings["Mass"] ?? 1)))
+                        Text(String(format: "%.5f", (Double(data.KE) ?? 0) * (currentSettings["Mass"] ?? 1)))
                     }
                     
                     if tableDisplays[3] {
@@ -414,20 +571,6 @@ struct tableText: Identifiable {
         self.dM = inputValues[5]
         self.P = inputValues[6]
         self.KE = inputValues[7]
-    }
-}
-
-// Stores accelerometer data based on their time, value, and index
-struct recordedData: Identifiable {
-    let value: Double // Magnitude
-    let index: String // What it is
-    let time: Double // When it is
-    let id = UUID()
-    
-    init(value: Double, index: String) {
-        self.value = value
-        self.index = index
-        self.time = counter // TODO: re-write to remove internal reference to global
     }
 }
 
