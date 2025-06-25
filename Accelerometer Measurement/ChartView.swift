@@ -19,7 +19,7 @@ import Charts
  */
 
 // Struct for displaying charts
-struct charts: View {
+struct chartView: View {
     // The stored data
     var displayedData: [recordedData]
     
@@ -38,21 +38,21 @@ struct charts: View {
     var body: some View {
         VStack {
             if chartDisplays[0] {  // Display basic accelerometer data chart
-                baseAccelChart(
+                baseAccelChartView(
                     displayedData: displayedData,
                     currentSettings: currentSettings
                 )
             }
             
             if chartDisplays[1] {  // Display ∆M chart
-                magnitudeChart(
+                magnitudeChartView(
                     displayedData: displayedData,
                     currentSettings: currentSettings
                 )
             }
             
             if chartDisplays[2] { // Display Equation: Energy chart
-                powerChart(
+                powerChartView(
                     displayedData: displayedData,
                     currentSettings: currentSettings
                 )
@@ -71,7 +71,7 @@ struct charts: View {
 
 
 // Displays the baseline xyz accelerometer data
-struct baseAccelChart: View {
+struct baseAccelChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
@@ -96,7 +96,7 @@ struct baseAccelChart: View {
 }
 
 // Displays the accelerometer magnitude and change in magnitude data
-struct magnitudeChart: View {
+struct magnitudeChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
@@ -119,7 +119,7 @@ struct magnitudeChart: View {
     }
 }
 
-struct powerChart: View {
+struct powerChartView: View {
     // The stored data
     var displayedData: [recordedData]
     

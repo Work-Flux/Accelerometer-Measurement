@@ -20,7 +20,7 @@ import SwiftUI
  */
 
 // Struct for displaying tables
-struct tables: View {
+struct tableView: View {
     // The settings data
     var currentSettings: [String : Double]
     

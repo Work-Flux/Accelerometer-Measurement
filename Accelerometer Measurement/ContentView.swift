@@ -21,6 +21,11 @@ import CoreMotion
     Classes:
         Real-time record of data from accelerometer and calculated from it
         Real-time settings data which impacts visuals and equations
+ 
+ TODO: Re-write recordedData to take an array and internally seperate it out
+ TODO: Change starting KE to starting velocity
+ TODO: Check need for counter as global, if so re-write recordedData to remove reference
+ TODO: Make starting settingsData values the default values used in settingsView
  */
 
 // Duration of current recording
@@ -45,7 +50,7 @@ struct recordedData: Identifiable {
     init(value: Double, index: String) {
         self.value = value
         self.index = index
-        self.time = counter // TODO: check need / re-write to remove internal reference to global instead of requesting it at use; possibly remove init
+        self.time = counter
     }
 }
 
@@ -60,26 +65,25 @@ class storedData: ObservableObject {
     }
 }
 
-// Stores settings data for equations and display
+
+// Stores settings data for equations and display and sets default values
 class settingsData: ObservableObject {
     @Published var currentSettings: [String: Double] = [
         // Display settings
-        // TODO: Make display settings
+        
         // Equation settings
-        "Mass" : 0.15, // Mass in kilograms
+        "Mass" : 1, // Mass in kilograms
         "Resistance" : 1, // Electrical resistance in ohms
         "KE_0" : 0 // Starting Kinetic Energy in joules
     ]
     
 }
 
-
 /*
- Section for settings page, main page display, and functions for recording and processing the data
+ Section for main page display, and functions for recording and processing the data
  
  Contains:
     Structs:
-        Settings pop-up
         ContentView
     Functions:
         Starting and stopping recording, while processing the data from the accelerometers and adding it to the storage
@@ -87,19 +91,8 @@ class settingsData: ObservableObject {
  TODO: Add email exporting functionality
     Possibly integrate into endRecording or settings page
  TODO: Check viability of having recording function in the ContentView body
+ TODO: Add computing of other values for variant tables
  */
-
-// Settings pop-up page
-struct settings: View {
-    @Binding var popup: Bool
-    
-    var body: some View {
-        Text("Settings")
-        Text("Mass (g)") // Mass displayed in grams, converted to kg
-        Text("Resistance (Ω)") // Resistance displayed in ohms
-        Text("Starting Kinetic Energy (J)") // Assumed starting kinetic energy displayed in joules
-    }
-}
 
 // Main page view
 struct ContentView: View {
@@ -166,7 +159,7 @@ struct ContentView: View {
                 }
                 .labelStyle(.iconOnly)
                 .popover(isPresented: $popup) {
-                    Accelerometer_Measurement.settings(popup: $popup)
+                    settingView(currentSettings: $settings.currentSettings, popup: $popup)
                 }
                 // For changing displayed charts; only allow two to be displayed at once
                 Menu("Charts") {
@@ -205,7 +198,7 @@ struct ContentView: View {
             }
             
             // Add the charts to use the real-time data
-            charts(
+            chartView(
                 displayedData: stored.displayData,
                 currentSettings: settings.currentSettings,
                 tableContents: $tableContents,
@@ -216,7 +209,7 @@ struct ContentView: View {
             )
             
             // Add the tables to use the real-time data
-            tables(
+            tableView(
                 currentSettings: settings.currentSettings,
                 tableContents: $tableContents,
                 dataEntries: ContentView.dataEntries,
@@ -231,7 +224,6 @@ struct ContentView: View {
     /*
      Records data from the built-in accelerometer
      Computes magnitude and change in magnitude
-     TODO: Add computing of other values for variant tables
      */
     func startRecording() {
         // Clear previous values
