@@ -79,15 +79,13 @@ class storedData: ObservableObject {
 
 // Stores settings data for equations and display and sets default values
 class settingsData: ObservableObject {
-    @Published var currentSettings: [String: Double] = [
-        // Display settings
-        
-        // Equation settings
-        "Mass" : 1, // Mass in kilograms
-        "Resistance" : 1, // Electrical resistance in ohms
-        "V0" : 0 // Starting velocity in m/s
-    ]
+    @Published var currentSettings: [String: Double] = [:]
     
+    let defaultSettings: [String: Double] = [
+        "Mass" : 1, 
+        "V0" : 1, 
+        "Resistance" : 1
+    ]
 }
 
 /*
@@ -159,7 +157,7 @@ struct ContentView: View {
                 }
                 .labelStyle(.iconOnly)
                 .popover(isPresented: $popup) {
-                    settingView(currentSettings: $settings.currentSettings, popup: $popup)
+                    settingView(currentSettings: $settings.currentSettings, defaultSettings: settings.defaultSettings, popup: $popup)
                 }
                 // For changing displayed charts; only allow two to be displayed at once
                 Menu("Charts") {

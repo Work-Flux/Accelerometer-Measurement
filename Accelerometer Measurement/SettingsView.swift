@@ -24,6 +24,7 @@ import SwiftUI
 struct settingView: View {
     // The settings data
     @Binding var currentSettings: [String : Double]
+    let defaultSettings: [String : Double]
     
     // If the popup is active
     @Binding var popup: Bool
@@ -37,7 +38,7 @@ struct settingView: View {
                 headerText: "Mass",
                 externalDictionary: $currentSettings,
                 dictionaryKey: "Mass",
-                defaultDictionaryValue: 1,
+                defaultDictionary: defaultSettings,
                 useToggle: true,
                 toggleText: "Mass On",
                 useToggleSubtext: true,
@@ -51,7 +52,7 @@ struct settingView: View {
                 headerText: "Starting Velocity",
                 externalDictionary: $currentSettings,
                 dictionaryKey: "V0",
-                defaultDictionaryValue: 0,
+                defaultDictionary: defaultSettings,
                 toggleValue: false,
                 useToggle: true,
                 toggleText: "Moving Start",
@@ -66,7 +67,7 @@ struct settingView: View {
                 headerText: "Circuit Resistance",
                 externalDictionary: $currentSettings,
                 dictionaryKey: "Resistance",
-                defaultDictionaryValue: 1,
+                defaultDictionary: defaultSettings,
                 useToggle: false,
                 useToggleSubtext: false,
                 textFieldClarifier: "Resistance (Ω):",
@@ -98,7 +99,7 @@ struct numericInputView: View {
     // Key to modify in dictionary
     let dictionaryKey: String
     // Value that is displayed on initial load and when the section is toggled off
-    let defaultDictionaryValue: Double
+    let defaultDictionary: [String : Double]
     
     // The stored value that the user inputs
     @State private var userInputValue: Double?
@@ -126,7 +127,7 @@ struct numericInputView: View {
         headerText: String,
         externalDictionary: Binding<[String : Double]>,
         dictionaryKey: String,
-        defaultDictionaryValue: Double,
+        defaultDictionary: [String : Double],
         toggleValue: Bool = true,
         useToggle: Bool,
         toggleText: String? = nil,
@@ -138,7 +139,7 @@ struct numericInputView: View {
         self.headerText = headerText
         self._externalDictionary = externalDictionary
         self.dictionaryKey = dictionaryKey
-        self.defaultDictionaryValue = defaultDictionaryValue
+        self.defaultDictionary = defaultDictionary
         self.toggleValue = toggleValue
         self.useToggle = useToggle
         self.toggleText = toggleText
@@ -162,18 +163,18 @@ struct numericInputView: View {
                     }
                 }
                 .onChange(of: toggleValue) {
-                    externalDictionary[dictionaryKey] = toggleValue ? userInputValue : defaultDictionaryValue
+                    externalDictionary[dictionaryKey] = toggleValue ? userInputValue : defaultDictionary[dictionaryKey]
                 }
                 HStack {
                     Text(textFieldClarifier)
                         .foregroundColor(!toggleValue ? .gray : .primary)
-                    TextField(textFieldPlaceholder, value: toggleValue ? $userInputValue : .constant(defaultDictionaryValue), format: .number)
+                    TextField(textFieldPlaceholder, value: toggleValue ? $userInputValue : .constant(defaultDictionary[dictionaryKey]), format: .number)
                         .disabled(!toggleValue)
                         .foregroundColor(!toggleValue ? .gray : .primary)
                         .keyboardType(.decimalPad)
                         .focused($textFieldFocused)
                         .onAppear {
-                            userInputValue = defaultDictionaryValue
+                            userInputValue = defaultDictionary[dictionaryKey]
                         }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
@@ -192,7 +193,7 @@ struct numericInputView: View {
                         .keyboardType(.decimalPad)
                         .focused($textFieldFocused)
                         .onAppear {
-                            userInputValue = defaultDictionaryValue
+                            userInputValue = defaultDictionary[dictionaryKey]
                         }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
@@ -212,5 +213,6 @@ struct numericInputView: View {
 #Preview {
     @Previewable @State var popup = true
     @Previewable @State var currentSettings: [String: Double] = [:]
-    settingView(currentSettings: $currentSettings, popup: $popup)
+    @Previewable let defaultSettings: [String: Double] = [:]
+    settingView(currentSettings: $currentSettings, defaultSettings: defaultSettings, popup: $popup)
 }
