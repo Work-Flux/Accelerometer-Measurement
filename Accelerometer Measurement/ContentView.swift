@@ -23,7 +23,6 @@ import CoreMotion
         Real-time settings data which impacts visuals and equations
  
  TODO: Re-write recordedData to take an array and internally seperate it out
- TODO: Change starting KE to starting velocity
  TODO: Check need for counter as global, if so re-write recordedData to remove reference
  TODO: Make starting settingsData values the default values used in settingsView
  */
@@ -74,7 +73,7 @@ class settingsData: ObservableObject {
         // Equation settings
         "Mass" : 1, // Mass in kilograms
         "Resistance" : 1, // Electrical resistance in ohms
-        "KE_0" : 0 // Starting Kinetic Energy in joules
+        "V0" : 0 // Starting velocity in m/s
     ]
     
 }
@@ -232,7 +231,7 @@ struct ContentView: View {
         counter = 0.0
         
         // Set starting kinetic energy to designated settings value
-        var kineticEnergy = settings.currentSettings["KE_0"] ?? 0
+        var kineticEnergy = 1 / 2 * pow(settings.currentSettings["V0"] ?? 0, 2) * (settings.currentSettings["Mass"] ?? 1)
         
         // Start timer according to set values
         countTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in

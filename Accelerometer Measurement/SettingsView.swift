@@ -45,19 +45,19 @@ struct settingView: View {
                 textFieldPlaceholder: "Input Mass"
             )
             
-            // View for assuming zero or non-zero initial kinetic energy
+            // View for assuming zero or non-zero initial velocity
             numericInputView(
-                headerText: "Starting Kinetic Energy",
+                headerText: "Starting Velocity",
                 externalDictionary: $currentSettings,
-                dictionaryKey: "KE_0",
+                dictionaryKey: "V0",
                 defaultDictionaryValue: 0,
                 toggleValue: false,
                 useToggle: true,
                 toggleText: "Moving Start",
                 useToggleSubtext: true,
-                toggleOffSubtext: "Assuming starting velocity of zero",
-                textFieldClarifier: "Starting KE (J):",
-                textFieldPlaceholder: "Starting Kinetic Energy"
+                toggleOffSubtext: "Assuming starting speed of zero",
+                textFieldClarifier: "Velocity (m/s):",
+                textFieldPlaceholder: "Starting Velocity"
             )
             
             // View for getting the theoretical resistance used when doing calculations
@@ -76,7 +76,7 @@ struct settingView: View {
         VStack {
             Text("Settings Check").font(.title)
             Text("Mass (g) is \(String(format: "%.3e", currentSettings["Mass"] ?? 1))") // Mass in kg
-            Text("Starting Kinetic Energy (J) is  \(String(format: "%.3e", currentSettings["KE_0"] ?? 1))") // Assumed starting kinetic energy in joules
+            Text("Starting Velocity (m/s) is  \(String(format: "%.3e", currentSettings["V0"] ?? 1))") // Assumed starting velocity in m/s
             Text("Resistance (Ω) is  \(String(format: "%.3e", currentSettings["Resistance"] ?? 1))") // Resistance displayed in ohms
         }
     }
