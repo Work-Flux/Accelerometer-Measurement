@@ -16,6 +16,7 @@ import Charts
     Structs for the generation of charts according to settings
  
  TODO: Make charts tappable to pop up expanded and scrollable view of the selected one
+    Possible resolution to issue of chart viwability at high durations of data collection
  */
 
 // Struct for displaying charts
@@ -33,7 +34,6 @@ struct chartView: View {
     let dataEntries: [String]
     let dataEntryCount: [Int]
     @Binding var chartDisplays: [Bool]
-    @Binding var tableDisplays: [Bool]
     
     var body: some View {
         VStack {
@@ -81,15 +81,29 @@ struct baseAccelChartView: View {
     var body: some View {
         Chart {
             ForEach(displayedData) { data in
-                if data.index == "X" || data.index == "Y" || data.index == "Z" {
-                    LineMark(
-                        x: .value("Time", data.time),
-                        y: .value("Total Count", data.value)
-                    )
-                    .foregroundStyle(by: .value("Index", data.index))
-                    .interpolationMethod(.cardinal)
-                    .opacity(0.8)
-                }
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.x)
+                )
+                .foregroundStyle(by: .value("Index", "x"))
+                .interpolationMethod(.cardinal)
+                .opacity(0.8)
+                
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.y)
+                )
+                .foregroundStyle(by: .value("Index", "y"))
+                .interpolationMethod(.cardinal)
+                .opacity(0.8)
+                
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.z)
+                )
+                .foregroundStyle(by: .value("Index", "z"))
+                .interpolationMethod(.cardinal)
+                .opacity(0.8)
             }
         }
     }
@@ -106,14 +120,19 @@ struct magnitudeChartView: View {
     var body: some View {
         Chart {
             ForEach(displayedData) { data in
-                if data.index == "M" || data.index == "∆M" {
-                    LineMark(
-                        x: .value("Time", data.time),
-                        y: .value("Total Count", data.value)
-                    )
-                    .foregroundStyle(by: .value("Index", data.index))
-                    .interpolationMethod(.cardinal)
-                }
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.m)
+                )
+                .foregroundStyle(by: .value("Index", "m"))
+                .interpolationMethod(.cardinal)
+                
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.dm)
+                )
+                .foregroundStyle(by: .value("Index", "dm"))
+                .interpolationMethod(.cardinal)
             }
         }
     }
@@ -129,14 +148,19 @@ struct powerChartView: View {
     var body: some View {
         Chart {
             ForEach(displayedData) { data in
-                if data.index == "P" ||  data.index == "KE" {
-                    LineMark(
-                        x: .value("Time", data.time),
-                        y: .value("Total Count", data.value * (currentSettings["Mass"] ?? 1))
-                    )
-                    .foregroundStyle(by: .value("Index", data.index))
-                    .interpolationMethod(.cardinal)
-                }
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.p * (currentSettings["Mass"] ?? 1))
+                )
+                .foregroundStyle(by: .value("Index", "p"))
+                .interpolationMethod(.cardinal)
+                
+                LineMark(
+                    x: .value("Time", data.t),
+                    y: .value("Total Count", data.ke * (currentSettings["Mass"] ?? 1))
+                )
+                .foregroundStyle(by: .value("Index", "ke"))
+                .interpolationMethod(.cardinal)
             }
         }
     }

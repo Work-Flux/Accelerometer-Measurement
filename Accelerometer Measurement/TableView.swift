@@ -30,7 +30,6 @@ struct tableView: View {
     // What names do the data entries have and where are they displayed
     let dataEntries: [String]
     let dataEntryCount: [Int]
-    @Binding var chartDisplays: [Bool]
     @Binding var tableDisplays: [Bool]
     
     var body: some View {
