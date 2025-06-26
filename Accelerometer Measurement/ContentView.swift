@@ -27,9 +27,6 @@ import CoreMotion
  TODO: Make starting settingsData values the default values used in settingsView
  */
 
-// Duration of current recording
-var counter: Double = 0.0
-
 // Tick rate for timers / accelerometer updates
 let stepTime: Double = 0.1
 
@@ -46,10 +43,10 @@ struct recordedData: Identifiable {
     let time: Double // When it is
     let id = UUID()
     
-    init(value: Double, index: String) {
+    init(value: Double, index: String, time: Double) {
         self.value = value
         self.index = index
-        self.time = counter
+        self.time = time
     }
 }
 
@@ -105,25 +102,28 @@ struct ContentView: View {
     
     // Recording accelerometer Data
     @State private var accelerometerData: (x: Double, y: Double, z: Double) = (-1, 1, 0)
-    @State private var xData: (recordedData) = recordedData(value: 0, index: "X")
-    @State private var yData: (recordedData) = recordedData(value: 0, index: "Y")
-    @State private var zData: (recordedData) = recordedData(value: 0, index: "Z")
+    @State private var xData: (recordedData) = recordedData(value: 0, index: "X", time: 0)
+    @State private var yData: (recordedData) = recordedData(value: 0, index: "Y", time: 0)
+    @State private var zData: (recordedData) = recordedData(value: 0, index: "Z", time: 0)
     @State private var bulkAccelData: [Double] = [0, 0, 0]
     
     // Storing magnitudes from accelerometer
-    @State private var mData: (recordedData) = recordedData(value: 0, index: "M")
+    @State private var mData: (recordedData) = recordedData(value: 0, index: "M", time: 0)
     @State private var oldMData: Double = 0
     
     // Change in magnitude across single steps
-    @State private var dmData: (recordedData) = recordedData(value: 0, index: "∆M")
+    @State private var dmData: (recordedData) = recordedData(value: 0, index: "∆M", time: 0)
     
     // Kinetic energy and Power across the recording time
-    @State private var keData: (recordedData) = recordedData(value: 0, index: "KE")
-    @State private var pData: (recordedData) = recordedData(value: 0, index: "P")
+    @State private var keData: (recordedData) = recordedData(value: 0, index: "KE", time: 0)
+    @State private var pData: (recordedData) = recordedData(value: 0, index: "P", time: 0)
     
     // Timers for steps
     @State private var countTimer: Timer?
     @State private var accelTimer: Timer?
+    
+    // Duration of current recording
+    @State private var counter: Double = 0.0
     
     // If we are recording the accelerometer data
     @State private var recording: Bool = false
@@ -248,30 +248,30 @@ struct ContentView: View {
                     bulkAccelData = [accelerometerData.acceleration.x, accelerometerData.acceleration.y, accelerometerData.acceleration.z]
                     
                     // Save raw accelerometer data
-                    self.xData = recordedData(value: bulkAccelData[0], index: "X")
+                    self.xData = recordedData(value: bulkAccelData[0], index: "X", time: counter)
                     stored.addToDisplay(xData)
                     
-                    self.yData = recordedData(value: bulkAccelData[1], index: "Y")
+                    self.yData = recordedData(value: bulkAccelData[1], index: "Y", time: counter)
                     stored.addToDisplay(yData)
                     
-                    self.zData = recordedData(value: bulkAccelData[2], index: "Z")
+                    self.zData = recordedData(value: bulkAccelData[2], index: "Z", time: counter)
                     stored.addToDisplay(zData)
                     
                     // Find magnitude from raw accelerometer data
-                    self.mData = recordedData(value: abs(sqrt(bulkAccelData.reduce(0) {$0 + pow($1, 2)}) - 1), index: "M")
+                    self.mData = recordedData(value: abs(sqrt(bulkAccelData.reduce(0) {$0 + pow($1, 2)}) - 1), index: "M", time: counter)
                     stored.addToDisplay(mData)
                     
                     // Find change in magnitude between steps
-                    self.dmData = recordedData(value: self.mData.value - self.oldMData, index: "∆M")
+                    self.dmData = recordedData(value: self.mData.value - self.oldMData, index: "∆M", time: counter)
                     stored.addToDisplay(dmData)
                     
                     self.oldMData = self.mData.value
                     
-                    self.pData = recordedData(value: 1 / 2 * pow(self.dmData.value * stepTime, 2) * stepTime, index: "P")
+                    self.pData = recordedData(value: 1 / 2 * pow(self.dmData.value * stepTime, 2) * stepTime, index: "P", time: counter)
                     stored.addToDisplay(pData)
                     
                     kineticEnergy += (self.pData.value / stepTime) * (self.dmData.value > 0 ? 1 : -1)
-                    self.keData = recordedData(value: kineticEnergy, index: "KE")
+                    self.keData = recordedData(value: kineticEnergy, index: "KE", time: counter)
                     stored.addToDisplay(keData)
                 }
             }

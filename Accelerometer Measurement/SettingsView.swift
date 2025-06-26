@@ -17,6 +17,7 @@ import SwiftUI
  
  TODO: Make display settings
  TODO: Check how implemented textField clarifier in numericInputView interacts with macOS titling
+ TODO: Check init for setting default displayed values instead of onAppear as manual values are not displayed when popup re-appears
  */
 
 // Settings pop-up page
@@ -71,6 +72,11 @@ struct settingView: View {
                 textFieldClarifier: "Resistance (Ω):",
                 textFieldPlaceholder: "Resistance"
             )
+            
+            // Button to close settings
+            Button("Close Settings") {
+                popup = false
+            }
         }
         
         VStack {
@@ -84,29 +90,43 @@ struct settingView: View {
 
 // Struct for adding a module with a header, and a numeric textfield, with the option of restricting textfield use via toggle
 struct numericInputView: View {
+    // Title for the section generated
     let headerText: String
     
+    // External dictionary being modified by the settings
     @Binding var externalDictionary: [String : Double]
+    // Key to modify in dictionary
     let dictionaryKey: String
+    // Value that is displayed on initial load and when the section is toggled off
     let defaultDictionaryValue: Double
     
-    @State var userInputValue: Double = 0
+    // The stored value that the user inputs
+    @State private var userInputValue: Double?
     
+    // Starting state of the toggle and its stored value
     @State var toggleValue: Bool = true
+    // Whether the toggle is displayed or not
     let useToggle: Bool
+    // Descriptor for the toggle
     let toggleText: String?
+    
+    // Whether the subtext is used
     let useToggleSubtext: Bool
+    // Subtext that displays when toggle is turned off
     let toggleOffSubtext: String?
     
+    // Text describing the input requested by the textfield
     let textFieldClarifier: String
+    // Text that displays when no value is in the textfield
     let textFieldPlaceholder: String
+    // Whether the textfield is selected or not
+    @FocusState private var textFieldFocused: Bool
     
     init(
         headerText: String,
         externalDictionary: Binding<[String : Double]>,
         dictionaryKey: String,
         defaultDictionaryValue: Double,
-        userInputValue: Double = 0,
         toggleValue: Bool = true,
         useToggle: Bool,
         toggleText: String? = nil,
@@ -119,7 +139,6 @@ struct numericInputView: View {
         self._externalDictionary = externalDictionary
         self.dictionaryKey = dictionaryKey
         self.defaultDictionaryValue = defaultDictionaryValue
-        self.userInputValue = userInputValue
         self.toggleValue = toggleValue
         self.useToggle = useToggle
         self.toggleText = toggleText
@@ -133,7 +152,6 @@ struct numericInputView: View {
         Section(header: Text(headerText)) {
             switch useToggle {
             case true:
-                // The toggle controlling if the textField is active or the default value will be used
                 Toggle(isOn: $toggleValue) {
                     Text(toggleText!)
                     
@@ -146,7 +164,6 @@ struct numericInputView: View {
                 .onChange(of: toggleValue) {
                     externalDictionary[dictionaryKey] = toggleValue ? userInputValue : defaultDictionaryValue
                 }
-                // Text confirming what the
                 HStack {
                     Text(textFieldClarifier)
                         .foregroundColor(!toggleValue ? .gray : .primary)
@@ -154,24 +171,38 @@ struct numericInputView: View {
                         .disabled(!toggleValue)
                         .foregroundColor(!toggleValue ? .gray : .primary)
                         .keyboardType(.decimalPad)
+                        .focused($textFieldFocused)
                         .onAppear {
                             userInputValue = defaultDictionaryValue
                         }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
                         }
+                    if textFieldFocused {
+                        Button("Submit") {
+                            textFieldFocused = false
+                            externalDictionary[dictionaryKey] = userInputValue
+                        }
+                    }
                 }
             case false:
                 HStack {
                     Text(textFieldClarifier)
                     TextField(textFieldPlaceholder, value: $userInputValue, format: .number)
                         .keyboardType(.decimalPad)
+                        .focused($textFieldFocused)
                         .onAppear {
                             userInputValue = defaultDictionaryValue
                         }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
                         }
+                    if textFieldFocused {
+                        Button("Submit") {
+                            textFieldFocused = false
+                            externalDictionary[dictionaryKey] = userInputValue
+                        }
+                    }
                 }
             }
         }
