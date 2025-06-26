@@ -85,7 +85,7 @@ struct baseAccelChartView: View {
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.x)
                 )
-                .foregroundStyle(by: .value("Index", "x"))
+                .foregroundStyle(by: .value("Index", "X"))
                 .interpolationMethod(.cardinal)
                 .opacity(0.8)
                 
@@ -93,7 +93,7 @@ struct baseAccelChartView: View {
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.y)
                 )
-                .foregroundStyle(by: .value("Index", "y"))
+                .foregroundStyle(by: .value("Index", "Y"))
                 .interpolationMethod(.cardinal)
                 .opacity(0.8)
                 
@@ -101,7 +101,7 @@ struct baseAccelChartView: View {
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.z)
                 )
-                .foregroundStyle(by: .value("Index", "z"))
+                .foregroundStyle(by: .value("Index", "Z"))
                 .interpolationMethod(.cardinal)
                 .opacity(0.8)
             }
@@ -124,14 +124,14 @@ struct magnitudeChartView: View {
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.m)
                 )
-                .foregroundStyle(by: .value("Index", "m"))
+                .foregroundStyle(by: .value("Index", "Magnitude"))
                 .interpolationMethod(.cardinal)
                 
                 LineMark(
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.dm)
                 )
-                .foregroundStyle(by: .value("Index", "dm"))
+                .foregroundStyle(by: .value("Index", "Change in Magnitude"))
                 .interpolationMethod(.cardinal)
             }
         }
@@ -152,14 +152,14 @@ struct powerChartView: View {
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.p * (currentSettings["Mass"] ?? 1))
                 )
-                .foregroundStyle(by: .value("Index", "p"))
+                .foregroundStyle(by: .value("Index", "Power"))
                 .interpolationMethod(.cardinal)
                 
                 LineMark(
                     x: .value("Time", data.t),
                     y: .value("Total Count", data.ke * (currentSettings["Mass"] ?? 1))
                 )
-                .foregroundStyle(by: .value("Index", "ke"))
+                .foregroundStyle(by: .value("Index", "Kinetic Energy"))
                 .interpolationMethod(.cardinal)
             }
         }

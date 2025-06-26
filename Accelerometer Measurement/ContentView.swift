@@ -83,7 +83,7 @@ class settingsData: ObservableObject {
     
     let defaultSettings: [String: Double] = [
         "Mass" : 1, 
-        "V0" : 1, 
+        "V0" : 0,
         "Resistance" : 1
     ]
 }
@@ -114,8 +114,8 @@ struct ContentView: View {
     @StateObject var settings = settingsData()
     
     // Recording accelerometer Data
-    @State private var accelerometerData: (x: Double, y: Double, z: Double) = (0, 0, 0)
-    @State private var bulkAccelData: [Double] = [0, 0, 0]
+    @State private var accelerometerData: (x: Double, y: Double, z: Double) = (0, 0, -1)
+    @State private var bulkAccelData: [Double] = [0, 0, -1]
     
     // Timers for steps
     @State private var countTimer: Timer?
@@ -246,7 +246,7 @@ struct ContentView: View {
                         accelerometerData.acceleration.z
                     ]
                     
-                    let pastData = stored.displayData.last ?? recordedData(valueRange: [0.0, 0.0, 0.0, 0.0], pastM: 0.0, pastKE: 0.0)
+                    let pastData = stored.displayData.last ?? recordedData(valueRange: [0, 0, 0, -1], pastM: 0, pastKE: 0)
                     
                     stored.addToDisplayData(recordedData(valueRange: bulkAccelData, pastM: pastData.m, pastKE: pastData.ke))
                 }
