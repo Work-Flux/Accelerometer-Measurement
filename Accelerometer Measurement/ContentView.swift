@@ -22,9 +22,9 @@ import CoreMotion
         Real-time record of data from accelerometer and calculated from it
         Real-time settings data which impacts visuals and equations
  
- TODO: Re-write recordedData to take an array and internally seperate it out
- TODO: Make starting settingsData values the default values used in settingsView
- TODO: Check KE stepping away from zero on movement
+ TODO: Check velocity having negative trend on one axis
+    Gravity not properly removed?
+    Switched to deviceMotion user updates instead of raw accel but issue still present, readout seems less stable
  */
 
 // Tick rate for timers / accelerometer updates
@@ -34,34 +34,75 @@ let stepTime: Double = 0.1
 let addedValueCount: Int = 1
 
 // How many dependant variables exist that are used in displays
-let recordedValueCount: Int = 7
+let recordedValueCount: Int = 15
 
 // Stores accelerometer data each tick and calculates additional values from it
 struct recordedData: Identifiable {
-    let valueRange: [Double] // Range of values recorded each tick
+    // Range of values recorded each tick
+    let valueRange: [Double]
+    // When it is
+    let t: Double
+    // Acceleration in xyz axes
+    let aX: Double
+    let aY: Double
+    let aZ: Double
     
-    let t: Double // When it is
-    let x: Double // Acceleration in xyz axes
-    let y: Double
-    let z: Double
+    // Velocity in xyz axes
+    let vX: Double
+    let vY: Double
+    let vZ: Double
     
-    // Calculated values from recorded data in valueRange
-    let m: Double // Magnitude of acceleration
-    let dm: Double // Change in magnitude of acceleration
-    let p: Double // Power from changing acceleration
-    let ke: Double // Total kinetic energy
+    // Magnitude of acceleration and change in said magnitude
+    let aM: Double
+    let adM: Double
+    
+    // Power from respective velocity changes
+    let pX: Double
+    let pY: Double
+    let pZ: Double
+    
+    // Magnitude of power and change in said magnitude
+    let pM: Double
+    let pdM: Double
+    
+    // Current from power magnitude and set resistance
+    let i: Double
+    // Voltage from current
+    let v: Double
+    
     let id = UUID()
     
-    init(valueRange: [Double], pastM: Double, pastKE: Double) {
+    init(valueRange: [Double], pastVelocity: [Double], pastMagnitudes: [Double], currentSettings: [String : Double]) {
         self.valueRange = valueRange
         self.t = valueRange[0]
-        self.x = valueRange[1]
-        self.y = valueRange[2]
-        self.z = valueRange[3]
-        self.m = abs(sqrt(valueRange[1...3].reduce(0) {$0 + pow($1, 2)}) - 1)
-        self.dm = self.m - pastM
-        self.p = 1 / 2 * pow(self.dm * stepTime, 2) * stepTime
-        self.ke = pastKE + (self.p / stepTime) * (self.dm > 0 ? 1 : -1)
+        
+        self.aX = valueRange[1]
+        self.aY = valueRange[2]
+        self.aZ = valueRange[3]
+        
+        self.aM = sqrt(valueRange[1...3].reduce(0) {$0 + pow($1, 2)})
+        self.adM = self.aM - pastMagnitudes[0]
+        
+        switch valueRange[0] {
+        case 0:
+            self.vX = 0
+            self.vY = currentSettings["V0"]!
+            self.vZ = 0
+        default:
+            self.vX = pastVelocity[0] + self.aX
+            self.vY = pastVelocity[1] + self.aY
+            self.vZ = pastVelocity[2] + self.aZ
+        }
+        
+        self.pX = aX * vX * currentSettings["Mass"]!
+        self.pY = aY * vY * currentSettings["Mass"]!
+        self.pZ = aZ * vZ * currentSettings["Mass"]!
+        
+        self.pM = sqrt(pow(self.pX, 2) + pow(self.pY, 2) + pow(self.pZ, 2))
+        self.pdM = self.pM - pastMagnitudes[1]
+        
+        self.i = sqrt(self.pM * currentSettings["Resistance"]!)
+        self.v = i * currentSettings["Resistance"]!
     }
 }
 
@@ -82,10 +123,14 @@ class settingsData: ObservableObject {
     @Published var currentSettings: [String: Double] = [:]
     
     let defaultSettings: [String: Double] = [
-        "Mass" : 1, 
-        "V0" : 0,
-        "Resistance" : 1
+        "Mass" : 1, // Mass in kg
+        "V0" : 0, // Starting velocity in m/s
+        "Resistance" : 0.1 // Circuit resistance in Ω
     ]
+    
+    init() {
+        self.currentSettings = defaultSettings
+    }
 }
 
 /*
@@ -100,7 +145,10 @@ class settingsData: ObservableObject {
  TODO: Add email exporting functionality
     Possibly integrate into endRecording or settings page
  TODO: Check viability of having recording function in the ContentView body
- TODO: Add computing of other values for variant tables
+ TODO: Meters per second
+ TODO: Add initial "press start recording button for charts/tables"
+ TODO: Check stopRecording spiking memory
+    Assumed to be due to table writing, needs validation
  */
 
 // Main page view
@@ -114,8 +162,13 @@ struct ContentView: View {
     @StateObject var settings = settingsData()
     
     // Recording accelerometer Data
-    @State private var accelerometerData: (x: Double, y: Double, z: Double) = (0, 0, -1)
-    @State private var bulkAccelData: [Double] = [0, 0, -1]
+    @State private var accelerometerData: (x: Double, y: Double, z: Double) = (0, 0, 0)
+    @State private var bulkAccelData: [Double] = [0, 0, 0]
+    
+    // Recording previous timestep's theoretical velocity for storedData calculations
+    @State private var pastVelocity: [Double] = [0, 0, 0]
+    // Recording previous timestep's magnitudes of acceleration and power
+    @State private var pastMagnitudes: [Double] = [0, 0]
     
     // Timers for steps
     @State private var countTimer: Timer?
@@ -140,8 +193,8 @@ struct ContentView: View {
     @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
     
     // What names do the data entries have and how many are displayed per title
-    static private let dataEntries: [String] = ["Acclerometer Data (ms2)", "Change in Magnitude", "Energy (J)", "Current (A)", "Voltage (V)"]
-    static private let dataEntryCount: [Int] = [3, 2, 2, 0, 0]
+    static private let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (J)", "Magnitudes (m/s2, J)", "Circuit Values (A, V)"]
+    static private let dataEntryCount: [Int] = [3, 3, 3, 4, 2]
     
     // What charts and tables are currently active
     @State private var chartDisplays: [Bool] = [true, true] + Array(repeating: false, count: dataEntries.count - 2)
@@ -200,8 +253,6 @@ struct ContentView: View {
                 displayedData: stored.displayData,
                 currentSettings: settings.currentSettings,
                 tableContents: $tableContents,
-                dataEntries: ContentView.dataEntries,
-                dataEntryCount: ContentView.dataEntryCount,
                 chartDisplays: $chartDisplays
             )
             
@@ -209,7 +260,6 @@ struct ContentView: View {
             tableView(
                 currentSettings: settings.currentSettings,
                 tableContents: $tableContents,
-                dataEntries: ContentView.dataEntries,
                 dataEntryCount: ContentView.dataEntryCount,
                 tableDisplays: $tableDisplays
             )
@@ -235,20 +285,29 @@ struct ContentView: View {
         
         // Start recording accelerometer updates
         if motionManager.isAccelerometerAvailable {
-            self.motionManager.accelerometerUpdateInterval = stepTime
+            self.motionManager.deviceMotionUpdateInterval = stepTime
             accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
-                motionManager.startAccelerometerUpdates(to: .main) {
+                motionManager.startDeviceMotionUpdates(to: .main) {
                     (data, _) in guard let accelerometerData = data else { return }
                     bulkAccelData = [
                         counter,
-                        accelerometerData.acceleration.x,
-                        accelerometerData.acceleration.y,
-                        accelerometerData.acceleration.z
+                        accelerometerData.userAcceleration.x,
+                        accelerometerData.userAcceleration.y,
+                        accelerometerData.userAcceleration.z
                     ]
                     
-                    let pastData = stored.displayData.last ?? recordedData(valueRange: [0, 0, 0, -1], pastM: 0, pastKE: 0)
+                    let currentRecordedData = recordedData(valueRange: bulkAccelData, pastVelocity: pastVelocity, pastMagnitudes: pastMagnitudes, currentSettings: settings.currentSettings)
+                    stored.addToDisplayData(currentRecordedData)
+                    pastVelocity = [
+                        currentRecordedData.vX,
+                        currentRecordedData.vY,
+                        currentRecordedData.vZ
+                    ]
+                    pastMagnitudes = [
+                        currentRecordedData.aM,
+                        currentRecordedData.pM
+                    ]
                     
-                    stored.addToDisplayData(recordedData(valueRange: bulkAccelData, pastM: pastData.m, pastKE: pastData.ke))
                 }
             }
         }
@@ -260,7 +319,7 @@ struct ContentView: View {
      */
     func stopRecording() {
         // Stop updates and timers
-        self.motionManager.stopAccelerometerUpdates()
+        self.motionManager.stopDeviceMotionUpdates()
         countTimer?.invalidate()
         countTimer = nil
         
@@ -272,17 +331,29 @@ struct ContentView: View {
         for (i, _) in stored.displayData.enumerated() {
             let timeString = String(format: "%.1f", stored.displayData[i].t)
             
-            // Adding and formatting dependant variables
-            let xString = String(format: "%.3f", stored.displayData[i].x)
-            let yString = String(format: "%.3f", stored.displayData[i].y)
-            let zString = String(format: "%.3f", stored.displayData[i].z)
-            let mString = String(format: "%.3f", stored.displayData[i].m)
-            let dmString = String(format: "%.3f", stored.displayData[i].dm)
-            let pString = String(format: "%.3f", stored.displayData[i].p * 1000) + "e-3"
-            let keString = String(format: "%.3f", stored.displayData[i].ke * 1000) + "e-3"
+            // Adding and formatting variables
+            let aXString = String(format: "%.3f", stored.displayData[i].aX)
+            let aYString = String(format: "%.3f", stored.displayData[i].aY)
+            let aZString = String(format: "%.3f", stored.displayData[i].aZ)
+            
+            let vXString = String(format: "%.3f", stored.displayData[i].vX)
+            let vYString = String(format: "%.3f", stored.displayData[i].vY)
+            let vZString = String(format: "%.3f", stored.displayData[i].vZ)
+            
+            let pXString = String(format: "%.3f", stored.displayData[i].pX * 1000) + "e-3"
+            let pYString = String(format: "%.3f", stored.displayData[i].pY * 1000) + "e-3"
+            let pZString = String(format: "%.3f", stored.displayData[i].pZ * 1000) + "e-3"
+            
+            let aMString = String(format: "%.3f", stored.displayData[i].aM)
+            let adMString = String(format: "%.3f", stored.displayData[i].adM)
+            let pMString = String(format: "%.3f", stored.displayData[i].pM)
+            let pdMString = String(format: "%.3f", stored.displayData[i].pdM)
+            
+            let iString = String(format: "%.3f", stored.displayData[i].i)
+            let vString = String(format: "%.3f", stored.displayData[i].v)
             
             // Saving row
-            let segment: [String] = [timeString, xString, yString, zString, mString, dmString, pString, keString]
+            let segment: [String] = [timeString, aXString, aYString, aZString, vXString, vYString, vZString, pXString, pYString, pZString, aMString, adMString, pMString, pdMString, iString, vString]
             
             csvText += segment.joined(separator: ",") + "\n"
             

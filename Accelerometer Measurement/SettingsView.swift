@@ -18,6 +18,9 @@ import SwiftUI
  TODO: Make display settings
  TODO: Check how implemented textField clarifier in numericInputView interacts with macOS titling
  TODO: Check init for setting default displayed values instead of onAppear as manual values are not displayed when popup re-appears
+ TODO: Add single-choice list for selecting starting velocity direction
+    Currently assumed to be y
+    Might need to add orientator for axes
  */
 
 // Settings pop-up page
@@ -43,7 +46,7 @@ struct settingView: View {
                 toggleText: "Mass On",
                 useToggleSubtext: true,
                 toggleOffSubtext: "Will generate mass-specific data",
-                textFieldClarifier: "Mass (Kg):",
+                textFieldClarifier: "Mass (kg):",
                 textFieldPlaceholder: "Input Mass"
             )
             

@@ -17,6 +17,7 @@ import SwiftUI
  TODO: Check modification of power data based on changing settings
     Might need re-generation from endRecording
     Possibly seperate out chart generation into new function
+ TODO: Try and find more elegent method of display and variable assignment
  */
 
 // Struct for displaying tables
@@ -27,8 +28,7 @@ struct tableView: View {
     // What is the contents of the table
     @Binding var tableContents: [tableText]
     
-    // What names do the data entries have and where are they displayed
-    let dataEntries: [String]
+    // What number of entries are under each table group selection, and which ones are active
     let dataEntryCount: [Int]
     @Binding var tableDisplays: [Bool]
     
@@ -41,53 +41,61 @@ struct tableView: View {
             LazyVGrid(columns: columns) {
                 Text("Time")
                 if tableDisplays[0] {
-                    Text("X")
-                    Text("Y")
-                    Text("Z")
+                    Text("aX")
+                    Text("aY")
+                    Text("aZ")
                 }
                 
                 if tableDisplays[1] {
-                    Text("M")
-                    Text("∆M")
+                    Text("vX")
+                    Text("vY")
+                    Text("vZ")
                 }
                 
                 if tableDisplays[2] {
-                    Text("P")
-                    Text("KE")
+                    Text("pX")
+                    Text("pY")
+                    Text("pZ")
                 }
                 
                 if tableDisplays[3] {
-                    
+                    Text("a.M")
+                    Text("∆a.M")
+                    Text("p.M")
+                    Text("∆p.M")
                 }
                 
                 if tableDisplays[4] {
-                    
+                    Text("I")
+                    Text("V")
                 }
                 
                 ForEach(tableContents) { data in
-                    Text(data.T)
+                    Text(data.timeString)
                     if tableDisplays[0] {
-                        Text(data.X)
-                        Text(data.Y)
-                        Text(data.Z)
+                        Text(data.aXString)
+                        Text(data.aYString)
+                        Text(data.aZString)
                     }
-                    
                     if tableDisplays[1] {
-                        Text(data.M)
-                        Text(data.dM)
+                        Text(data.vXString)
+                        Text(data.vYString)
+                        Text(data.vZString)
                     }
-                    
-                    if tableDisplays[2] { //TODO: Cause of inaccuracy from stopRecording log
-                        Text(String(format: "%.5f", (Double(data.P) ?? 0) * (currentSettings["Mass"] ?? 1)))
-                        Text(String(format: "%.5f", (Double(data.KE) ?? 0) * (currentSettings["Mass"] ?? 1)))
+                    if tableDisplays[2] {
+                        Text(data.pXString)
+                        Text(data.pYString)
+                        Text(data.pZString)
                     }
-                    
                     if tableDisplays[3] {
-                        
+                        Text(data.aMString)
+                        Text(data.adMString)
+                        Text(data.pMString)
+                        Text(data.pdMString)
                     }
-                    
                     if tableDisplays[4] {
-                        
+                        Text(data.iString)
+                        Text(data.vString)
                     }
                 }
             }
@@ -97,23 +105,47 @@ struct tableView: View {
 
 // Struct storing data for all potential table columns at a single time
 struct tableText: Identifiable {
-    let T: String // Time
-    let X: String // XYZ acceleration
-    let Y: String
-    let Z: String
-    let M: String // Magnitude of acceleration
-    let dM: String // Change in magnitude between steps
-    let P: String // Specific power from movement
-    let KE: String // Specific kinetic energy from change between steps
+    // Time for row of value
+    let timeString: String
+    // Acceleration along each axis
+    let aXString: String
+    let aYString: String
+    let aZString: String
+    // Velocity along each axis
+    let vXString: String
+    let vYString: String
+    let vZString: String
+    // Power resulting from mass, acceleration, velocity
+    let pXString: String
+    let pYString: String
+    let pZString: String
+    // Magnitudes of acceleration and changes of them
+    let aMString: String
+    let adMString: String
+    let pMString: String
+    let pdMString: String
+    // Current and velocity from magnitudes of power and resistance
+    let iString: String
+    let vString: String
+    
     let id = UUID()
     
-    init(inputValues: [String]) {self.T = inputValues[0]
-        self.X = inputValues[1]
-        self.Y = inputValues[2]
-        self.Z = inputValues[3]
-        self.M = inputValues[4]
-        self.dM = inputValues[5]
-        self.P = inputValues[6]
-        self.KE = inputValues[7]
+    init(inputValues: [String]) {
+        self.timeString = inputValues[0]
+        self.aXString = inputValues[1]
+        self.aYString = inputValues[2]
+        self.aZString = inputValues[3]
+        self.vXString = inputValues[4]
+        self.vYString = inputValues[5]
+        self.vZString = inputValues[6]
+        self.pXString = inputValues[7]
+        self.pYString = inputValues[8]
+        self.pZString = inputValues[9]
+        self.aMString = inputValues[10]
+        self.adMString = inputValues[11]
+        self.pMString = inputValues[12]
+        self.pdMString = inputValues[13]
+        self.iString = inputValues[14]
+        self.vString = inputValues[15]
     }
 }
