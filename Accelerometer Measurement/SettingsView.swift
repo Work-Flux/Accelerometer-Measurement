@@ -36,7 +36,7 @@ struct settingView: View {
     
     var body: some View {
         Form {
-            // View for choosing to use mass or use mass-specific
+            // Choosing to use mass or use mass-specific values
             numericInputView(
                 headerText: "Mass",
                 externalDictionary: $currentSettings,
@@ -47,25 +47,25 @@ struct settingView: View {
                 useToggleSubtext: true,
                 toggleOffSubtext: "Will generate mass-specific data",
                 textFieldClarifier: "Mass (kg):",
-                textFieldPlaceholder: "Input Mass"
+                textFieldPlaceholder: "Input mass"
             )
             
-            // View for assuming zero or non-zero initial velocity
+            // Determining zero or non-zero initial velocity
             numericInputView(
                 headerText: "Starting Velocity",
                 externalDictionary: $currentSettings,
                 dictionaryKey: "V0",
                 defaultDictionary: defaultSettings,
-                toggleValue: false,
                 useToggle: true,
+                toggleValue: false,
                 toggleText: "Moving Start",
                 useToggleSubtext: true,
                 toggleOffSubtext: "Assuming starting speed of zero",
                 textFieldClarifier: "Velocity (m/s):",
-                textFieldPlaceholder: "Starting Velocity"
+                textFieldPlaceholder: "Starting velocity"
             )
             
-            // View for getting the theoretical resistance used when doing calculations
+            // Getting the theoretical resistance used when doing calculations
             numericInputView(
                 headerText: "Circuit Resistance",
                 externalDictionary: $currentSettings,
@@ -75,6 +75,30 @@ struct settingView: View {
                 useToggleSubtext: false,
                 textFieldClarifier: "Resistance (Ω):",
                 textFieldPlaceholder: "Resistance"
+            )
+            
+            // Changing the number of seconds of data displayed in the overview charts
+            numericInputView(
+                headerText: "Chart Length",
+                externalDictionary: $currentSettings,
+                dictionaryKey: "ChartLength",
+                defaultDictionary: defaultSettings,
+                useToggle: false,
+                useToggleSubtext: false,
+                textFieldClarifier: "Seconds (s):",
+                textFieldPlaceholder: "Seconds of data to display"
+            )
+            
+            // How many decimals are displayed in the values within the table pop-up
+            numericInputView(
+                headerText: "Table Value Length",
+                externalDictionary: $currentSettings,
+                dictionaryKey: "TableValueLength",
+                defaultDictionary: defaultSettings,
+                useToggle: false,
+                useToggleSubtext: false,
+                textFieldClarifier: "Length:",
+                textFieldPlaceholder: "Digits shown after the decimal"
             )
             
             // Button to close settings
@@ -107,10 +131,10 @@ struct numericInputView: View {
     // The stored value that the user inputs
     @State private var userInputValue: Double?
     
-    // Starting state of the toggle and its stored value
-    @State var toggleValue: Bool = true
     // Whether the toggle is displayed or not
     let useToggle: Bool
+    // Starting state of the toggle and its stored value
+    @State var toggleValue: Bool = true
     // Descriptor for the toggle
     let toggleText: String?
     
@@ -131,8 +155,8 @@ struct numericInputView: View {
         externalDictionary: Binding<[String : Double]>,
         dictionaryKey: String,
         defaultDictionary: [String : Double],
-        toggleValue: Bool = true,
         useToggle: Bool,
+        toggleValue: Bool = true,
         toggleText: String? = nil,
         useToggleSubtext: Bool,
         toggleOffSubtext: String? = nil,
@@ -143,8 +167,8 @@ struct numericInputView: View {
         self._externalDictionary = externalDictionary
         self.dictionaryKey = dictionaryKey
         self.defaultDictionary = defaultDictionary
-        self.toggleValue = toggleValue
         self.useToggle = useToggle
+        self.toggleValue = toggleValue
         self.toggleText = toggleText
         self.useToggleSubtext = useToggleSubtext
         self.toggleOffSubtext = toggleOffSubtext

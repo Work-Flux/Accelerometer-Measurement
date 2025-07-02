@@ -18,6 +18,8 @@ import SwiftUI
     Might need re-generation from endRecording
     Possibly seperate out chart generation into new function
  TODO: Try and find more elegent method of display and variable assignment
+    Horizontal line between titles and data
+ TODO: Display in pages/add jump option?
  */
 
 // Struct for displaying tables
@@ -32,44 +34,61 @@ struct tableView: View {
     let dataEntryCount: [Int]
     @Binding var tableDisplays: [Bool]
     
+    // If the popup is active
+    @Binding var popup: Bool
+    
     var body: some View {
-        // Table display
+        HStack {
+            restrictedMenuSelection(
+                menuName: "Select Columns",
+                valueLimit: 3,
+                boolArray: $tableDisplays
+            )
+            Button("Hide Table") {
+                popup = false
+            }
+            .padding()
+            .buttonStyle(.bordered)
+        }
+        
         let tableSet = zip(tableDisplays, dataEntryCount)
         let tableCount: Int = tableSet.map{($0 ? 1 : 0) * $1}.reduce(0, +)
         let columns: [GridItem] = Array(repeating: GridItem(.flexible()), count: addedValueCount + tableCount)
+        LazyVGrid(columns: columns) {
+            Text("Time")
+            if tableDisplays[0] {
+                Text("aX")
+                Text("aY")
+                Text("aZ")
+            }
+            
+            if tableDisplays[1] {
+                Text("vX")
+                Text("vY")
+                Text("vZ")
+            }
+            
+            if tableDisplays[2] {
+                Text("pX")
+                Text("pY")
+                Text("pZ")
+            }
+            
+            if tableDisplays[3] {
+                Text("a.M")
+                Text("∆a.M")
+                Text("p.M")
+                Text("∆p.M")
+            }
+            
+            if tableDisplays[4] {
+                Text("I")
+                Text("V")
+            }
+        }
+        
         ScrollView{
             LazyVGrid(columns: columns) {
-                Text("Time")
-                if tableDisplays[0] {
-                    Text("aX")
-                    Text("aY")
-                    Text("aZ")
-                }
-                
-                if tableDisplays[1] {
-                    Text("vX")
-                    Text("vY")
-                    Text("vZ")
-                }
-                
-                if tableDisplays[2] {
-                    Text("pX")
-                    Text("pY")
-                    Text("pZ")
-                }
-                
-                if tableDisplays[3] {
-                    Text("a.M")
-                    Text("∆a.M")
-                    Text("p.M")
-                    Text("∆p.M")
-                }
-                
-                if tableDisplays[4] {
-                    Text("I")
-                    Text("V")
-                }
-                
                 ForEach(tableContents) { data in
                     Text(data.timeString)
                     if tableDisplays[0] {
@@ -99,6 +118,7 @@ struct tableView: View {
                     }
                 }
             }
+            .padding()
         }
     }
 }

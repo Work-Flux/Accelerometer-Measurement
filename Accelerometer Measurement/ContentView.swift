@@ -25,6 +25,8 @@ import CoreMotion
  TODO: Check velocity having negative trend on one axis
     Gravity not properly removed?
     Switched to deviceMotion user updates instead of raw accel but issue still present, readout seems less stable
+ TODO: Crashes due to memory use when stopping recording after couple minutes
+ TODO: Add catch for setting timestep to <=0
  */
 
 // Tick rate for timers / accelerometer updates
@@ -125,7 +127,12 @@ class settingsData: ObservableObject {
     let defaultSettings: [String: Double] = [
         "Mass" : 1, // Mass in kg
         "V0" : 0, // Starting velocity in m/s
-        "Resistance" : 0.1 // Circuit resistance in Ω
+        "Resistance" : 0.1, // Circuit resistance in Ω
+        
+        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
+        
+        "ChartLength" : 2, // Number of seconds of data to display
+        "TableValueLength" : 3 // Number of values after the decimal to display"
     ]
     
     init() {
@@ -181,7 +188,10 @@ struct ContentView: View {
     @State private var recording: Bool = false
     
     // If we are displaying the settings popup
-    @State private var popup: Bool = false
+    @State private var settingsPopup: Bool = false
+    
+    // If we are displaying the table popup
+    @State private var tablePopup: Bool = false
     
     // The update variable
     @State private var dRand: Double = 0.0
@@ -193,8 +203,8 @@ struct ContentView: View {
     @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
     
     // What names do the data entries have and how many are displayed per title
-    static private let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (J)", "Magnitudes (m/s2, J)", "Circuit Values (A, V)"]
-    static private let dataEntryCount: [Int] = [3, 3, 3, 4, 2]
+    static let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (J)", "Magnitudes (m/s2, J)", "Circuit Values (A, V)"]
+    static let dataEntryCount: [Int] = [3, 3, 3, 4, 2]
     
     // What charts and tables are currently active
     @State private var chartDisplays: [Bool] = [true, true] + Array(repeating: false, count: dataEntries.count - 2)
@@ -206,29 +216,24 @@ struct ContentView: View {
             Text("Duration: \(String(format: "%.1f", counter))s - Update: \(String(format: "%.2f", dRand))")
             HStack {
                 Button("Settings and Infromation", systemImage: "gearshape.fill") {
-                    popup = true
+                    settingsPopup = true
                 }
                 .labelStyle(.iconOnly)
-                .popover(isPresented: $popup) {
-                    settingView(currentSettings: $settings.currentSettings, defaultSettings: settings.defaultSettings, popup: $popup)
+                .popover(isPresented: $settingsPopup) {
+                    settingView(
+                        currentSettings: $settings.currentSettings,
+                        defaultSettings: settings.defaultSettings,
+                        popup: $settingsPopup
+                    )
                 }
-                // For changing displayed charts; only allow two to be displayed at once
-                Menu("Charts") {
-                    ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
-                        Toggle(ContentView.dataEntries[i], isOn: $chartDisplays[i]).disabled(2 == chartDisplays.filter { $0 }.count && !chartDisplays[i])
-                    }
-                }
-                .menuActionDismissBehavior(.disabled)
-                .buttonStyle(.bordered)
                 
-                // For changing what entries are displayed on the table
-                Menu("Tables") {
-                    ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
-                        Toggle(ContentView.dataEntries[i], isOn: $tableDisplays[i])
-                    }
-                }
-                .menuActionDismissBehavior(.disabled)
-                .buttonStyle(.bordered)
+                // Lets user choose charts/tables to display according to limitations
+                restrictedMenuSelection(
+                    menuName: "Charts",
+                    valueLimit: 2,
+                    boolArray: $chartDisplays
+                )
+                
                 
                 // Turns on / off the accelerometer recording, and exports results
                 switch recording {
@@ -257,12 +262,24 @@ struct ContentView: View {
             )
             
             // Add the tables to use the real-time data
-            tableView(
-                currentSettings: settings.currentSettings,
-                tableContents: $tableContents,
-                dataEntryCount: ContentView.dataEntryCount,
-                tableDisplays: $tableDisplays
-            )
+            // TODO: Add toggle to show tables when recording is stopped
+            switch recording {
+            case false:
+                Button("Show Tables") {
+                    tablePopup = true
+                }
+                .popover(isPresented: $tablePopup) {
+                    tableView(
+                        currentSettings: settings.currentSettings,
+                        tableContents: $tableContents,
+                        dataEntryCount: ContentView.dataEntryCount,
+                        tableDisplays: $tableDisplays,
+                        popup: $tablePopup
+                    )
+                }
+            case true:
+                EmptyView()
+            }
         }
         .padding()
     }
@@ -277,6 +294,8 @@ struct ContentView: View {
         stored.displayData.removeAll()
         counter = 0.0
         
+        let stepTime: Double = settings.currentSettings["StepTime"] ?? 0.1
+        
         // Start timer according to set values
         countTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
             counter += stepTime
@@ -284,7 +303,7 @@ struct ContentView: View {
         }
         
         // Start recording accelerometer updates
-        if motionManager.isAccelerometerAvailable {
+      if motionManager.isDeviceMotionAvailable {
             self.motionManager.deviceMotionUpdateInterval = stepTime
             accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
                 motionManager.startDeviceMotionUpdates(to: .main) {
@@ -295,9 +314,16 @@ struct ContentView: View {
                         accelerometerData.userAcceleration.y,
                         accelerometerData.userAcceleration.z
                     ]
-                    
-                    let currentRecordedData = recordedData(valueRange: bulkAccelData, pastVelocity: pastVelocity, pastMagnitudes: pastMagnitudes, currentSettings: settings.currentSettings)
+                   
+                     let currentRecordedData = recordedData(
+                        valueRange: bulkAccelData,
+                        pastVelocity: pastVelocity,
+                        pastMagnitudes: pastMagnitudes,
+                        currentSettings: settings.currentSettings
+                    )
+
                     stored.addToDisplayData(currentRecordedData)
+                
                     pastVelocity = [
                         currentRecordedData.vX,
                         currentRecordedData.vY,
@@ -307,8 +333,37 @@ struct ContentView: View {
                         currentRecordedData.aM,
                         currentRecordedData.pM
                     ]
-                    
                 }
+            }
+        }
+        // Only for preview in development
+        else {
+            accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
+                bulkAccelData = [
+                    counter,
+                    Double.random(in: -1.000...1.000),
+                    Double.random(in: -1.000...1.000),
+                    Double.random(in: -1.000...1.000)
+                ]
+                
+                let currentRecordedData = recordedData(
+                    valueRange: bulkAccelData,
+                    pastVelocity: pastVelocity,
+                    pastMagnitudes: pastMagnitudes,
+                    currentSettings: settings.currentSettings
+                )
+                
+                stored.addToDisplayData(currentRecordedData)
+                
+                pastVelocity = [
+                    currentRecordedData.vX,
+                    currentRecordedData.vY,
+                    currentRecordedData.vZ
+                ]
+                pastMagnitudes = [
+                    currentRecordedData.aM,
+                    currentRecordedData.pM
+                ]
             }
         }
     }
@@ -328,29 +383,33 @@ struct ContentView: View {
         
         // Tablulate data
         // TODO: p/ke not going to .3 or adding e-3 (FOUND: In specific chart for values they are redefined)
+        
+        // Values after decimal to display
+        let settingsFormat = "%.\(String(Int(settings.currentSettings["TableValueLength"] ?? 3)))f"
+        
         for (i, _) in stored.displayData.enumerated() {
             let timeString = String(format: "%.1f", stored.displayData[i].t)
             
             // Adding and formatting variables
-            let aXString = String(format: "%.3f", stored.displayData[i].aX)
-            let aYString = String(format: "%.3f", stored.displayData[i].aY)
-            let aZString = String(format: "%.3f", stored.displayData[i].aZ)
+            let aXString = String(format: settingsFormat, stored.displayData[i].aX)
+            let aYString = String(format: settingsFormat, stored.displayData[i].aY)
+            let aZString = String(format: settingsFormat, stored.displayData[i].aZ)
             
-            let vXString = String(format: "%.3f", stored.displayData[i].vX)
-            let vYString = String(format: "%.3f", stored.displayData[i].vY)
-            let vZString = String(format: "%.3f", stored.displayData[i].vZ)
+            let vXString = String(format: settingsFormat, stored.displayData[i].vX)
+            let vYString = String(format: settingsFormat, stored.displayData[i].vY)
+            let vZString = String(format: settingsFormat, stored.displayData[i].vZ)
             
-            let pXString = String(format: "%.3f", stored.displayData[i].pX * 1000) + "e-3"
-            let pYString = String(format: "%.3f", stored.displayData[i].pY * 1000) + "e-3"
-            let pZString = String(format: "%.3f", stored.displayData[i].pZ * 1000) + "e-3"
+            let pXString = String(format: settingsFormat, stored.displayData[i].pX * 1000) + "e-3"
+            let pYString = String(format: settingsFormat, stored.displayData[i].pY * 1000) + "e-3"
+            let pZString = String(format: settingsFormat, stored.displayData[i].pZ * 1000) + "e-3"
             
-            let aMString = String(format: "%.3f", stored.displayData[i].aM)
-            let adMString = String(format: "%.3f", stored.displayData[i].adM)
-            let pMString = String(format: "%.3f", stored.displayData[i].pM)
-            let pdMString = String(format: "%.3f", stored.displayData[i].pdM)
+            let aMString = String(format: settingsFormat, stored.displayData[i].aM)
+            let adMString = String(format: settingsFormat, stored.displayData[i].adM)
+            let pMString = String(format: settingsFormat, stored.displayData[i].pM)
+            let pdMString = String(format: settingsFormat, stored.displayData[i].pdM)
             
-            let iString = String(format: "%.3f", stored.displayData[i].i)
-            let vString = String(format: "%.3f", stored.displayData[i].v)
+            let iString = String(format: settingsFormat, stored.displayData[i].i)
+            let vString = String(format: settingsFormat, stored.displayData[i].v)
             
             // Saving row
             let segment: [String] = [timeString, aXString, aYString, aZString, vXString, vYString, vZString, pXString, pYString, pZString, aMString, adMString, pMString, pdMString, iString, vString]
@@ -362,6 +421,27 @@ struct ContentView: View {
     }
 }
 
+// For allowing user selection of a limited number of options
+struct restrictedMenuSelection: View {
+    // Name displayed on menu button
+    let menuName: String
+    
+    // Number of values that can be true at once
+    let valueLimit: Int
+    
+    // Array to conditionally flip
+    @Binding var boolArray: [Bool]
+    
+    var body: some View {
+        Menu(menuName) {
+            ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
+                Toggle(ContentView.dataEntries[i], isOn: $boolArray[i]).disabled(valueLimit == boolArray.filter {$0}.count && !boolArray[i])
+            }
+        }
+        .menuActionDismissBehavior(.disabled)
+        .buttonStyle(.bordered)
+    }
+}
 
 #Preview {
     ContentView()
