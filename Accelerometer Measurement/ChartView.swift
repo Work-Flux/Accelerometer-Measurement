@@ -17,13 +17,13 @@ import Charts
  
  TODO: Make charts tappable to pop up expanded and scrollable view of the selected one
     Possible resolution to issue of chart viwability at high durations of data collection
- TODO: Possible re-write to only trigger chart update on tick to add latest, not write it all every time
- TODO: Add titles for charts
+ TODO: Possible re-write to only trigger chart update on tick to add latest, not write it all every time?
+ TODO: Figure out way to have lineMarks as structs / similar to reduce copied code for each chart
  */
 
 // Struct for displaying charts
 struct chartView: View {
-    // The stored data
+    // The passed external data that is displayed
     var displayedData: [recordedData]
     
     // The settings data
@@ -35,39 +35,35 @@ struct chartView: View {
     // What charts are active
     @Binding var chartDisplays: [Bool]
     
+    // Limits the amount of rendered data to the number of seconds selected in settings
+    private var dataRange: Int {
+        Int((currentSettings["ChartLength"] ?? 10) / (currentSettings["StepTime"] ?? 0.1))
+    }
+    private var data: [recordedData] {
+        Array(displayedData.suffix(dataRange))
+    }
+    
+    
     var body: some View {
         VStack {
             if chartDisplays[0] {  // Display basic accelerometer data chart
-                baseAccelChartView(
-                    displayedData: displayedData,
-                    currentSettings: currentSettings
-                )
+                baseAccelChartView(displayedData: data)
             }
             
             if chartDisplays[1] {  // Display velocity chart
-                velocityChartView(
-                    displayedData: displayedData,
-                    currentSettings: currentSettings
-                )
+                velocityChartView(displayedData: data)
             }
             
             if chartDisplays[2] { // Display power
-                powerChartView(
-                    displayedData: displayedData,
-                    currentSettings: currentSettings
-                )
+                powerChartView(displayedData: data)
             }
             
             if chartDisplays[3] { // Display magnitude
-                magnitudeChartView(
-                    displayedData: displayedData,
-                    currentSettings: currentSettings)
+                magnitudeChartView(displayedData: data)
             }
             
             if chartDisplays[4] { // Display circuit values
-                circuitChartView(
-                    displayedData: displayedData,
-                    currentSettings: currentSettings)
+                circuitChartView(displayedData: data)
             }
         }
     }
@@ -79,36 +75,36 @@ struct baseAccelChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
-    // The settings data
-    var currentSettings: [String : Double]
-    
     var body: some View {
-        Chart {
-            ForEach(displayedData) { data in
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.aX)
-                )
-                .foregroundStyle(by: .value("Index", "X"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.aY)
-                )
-                .foregroundStyle(by: .value("Index", "Y"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.aZ)
-                )
-                .foregroundStyle(by: .value("Index", "Z"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
+        GroupBox("Acceleration (m/s2)") {
+            Chart {
+                ForEach(displayedData) { data in
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.aX)
+                    )
+                    .foregroundStyle(by: .value("Index", "X"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.aY)
+                    )
+                    .foregroundStyle(by: .value("Index", "Y"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.aZ)
+                    )
+                    .foregroundStyle(by: .value("Index", "Z"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                }
             }
+            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }
@@ -118,36 +114,36 @@ struct velocityChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
-    // The settings data
-    var currentSettings: [String : Double]
-    
     var body: some View {
-        Chart {
-            ForEach(displayedData) { data in
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.vX)
-                )
-                .foregroundStyle(by: .value("Index", "X"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.vY)
-                )
-                .foregroundStyle(by: .value("Index", "Y"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.vZ)
-                )
-                .foregroundStyle(by: .value("Index", "Z"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
+        GroupBox("Velocity (m/s)") {
+            Chart {
+                ForEach(displayedData) { data in
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.vX)
+                    )
+                    .foregroundStyle(by: .value("Index", "X"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.vY)
+                    )
+                    .foregroundStyle(by: .value("Index", "Y"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.vZ)
+                    )
+                    .foregroundStyle(by: .value("Index", "Z"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                }
             }
+            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }
@@ -157,36 +153,36 @@ struct powerChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
-    // The settings data
-    var currentSettings: [String : Double]
-    
     var body: some View {
-        Chart {
-            ForEach(displayedData) { data in
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.pX)
-                )
-                .foregroundStyle(by: .value("Index", "X"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.pY)
-                )
-                .foregroundStyle(by: .value("Index", "Y"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.pZ)
-                )
-                .foregroundStyle(by: .value("Index", "Z"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
+        GroupBox("Power (W)") {
+            Chart {
+                ForEach(displayedData) { data in
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.pX)
+                    )
+                    .foregroundStyle(by: .value("Index", "X"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.pY)
+                    )
+                    .foregroundStyle(by: .value("Index", "Y"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.pZ)
+                    )
+                    .foregroundStyle(by: .value("Index", "Z"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                }
             }
+            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }
@@ -196,43 +192,43 @@ struct magnitudeChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
-    // The settings data
-    var currentSettings: [String : Double]
-    
     var body: some View {
-        Chart {
-            ForEach(displayedData) { data in
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.aM)
-                )
-                .foregroundStyle(by: .value("Index", "Acceleration Magnitude"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.adM)
-                )
-                .foregroundStyle(by: .value("Index", "Change in A.Magnitude"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.pM)
-                )
-                .foregroundStyle(by: .value("Index", "Power Magnitude"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.pdM)
-                )
-                .foregroundStyle(by: .value("Index", "Change in P.Magnitude"))
-                .interpolationMethod(.cardinal)
-                .opacity(0.8)
+        GroupBox("Magnitudes (m/s2, W)") {
+            Chart {
+                ForEach(displayedData) { data in
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.aM)
+                    )
+                    .foregroundStyle(by: .value("Index", "Acceleration Magnitude"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.adM)
+                    )
+                    .foregroundStyle(by: .value("Index", "Change in A.Magnitude"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.pM)
+                    )
+                    .foregroundStyle(by: .value("Index", "Power Magnitude"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.pdM)
+                    )
+                    .foregroundStyle(by: .value("Index", "Change in P.Magnitude"))
+                    .interpolationMethod(.cardinal)
+                    .opacity(0.8)
+                }
             }
+            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }
@@ -242,26 +238,26 @@ struct circuitChartView: View {
     // The stored data
     var displayedData: [recordedData]
     
-    // The settings data
-    var currentSettings: [String : Double]
-    
     var body: some View {
-        Chart {
-            ForEach(displayedData) { data in
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.i)
-                )
-                .foregroundStyle(by: .value("Index", "Current"))
-                .interpolationMethod(.cardinal)
-                
-                LineMark(
-                    x: .value("Time", data.t),
-                    y: .value("Total Count", data.v)
-                )
-                .foregroundStyle(by: .value("Index", "Voltage"))
-                .interpolationMethod(.cardinal)
+        GroupBox("Current and Voltage (A, V)") {
+            Chart {
+                ForEach(displayedData) { data in
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.i)
+                    )
+                    .foregroundStyle(by: .value("Index", "Current"))
+                    .interpolationMethod(.cardinal)
+                    
+                    LineMark(
+                        x: .value("Time", data.t),
+                        y: .value("Total Count", data.v)
+                    )
+                    .foregroundStyle(by: .value("Index", "Voltage"))
+                    .interpolationMethod(.cardinal)
+                }
             }
+            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }

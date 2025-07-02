@@ -203,7 +203,7 @@ struct ContentView: View {
     @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
     
     // What names do the data entries have and how many are displayed per title
-    static let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (J)", "Magnitudes (m/s2, J)", "Circuit Values (A, V)"]
+    static let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (W)", "Magnitudes (m/s2, W)", "Circuit Values (A, V)"]
     static let dataEntryCount: [Int] = [3, 3, 3, 4, 2]
     
     // What charts and tables are currently active
