@@ -29,9 +29,6 @@ struct chartView: View {
     // The settings data
     var currentSettings: [String : Double]
     
-    // What is the contents of the table
-    @Binding var tableContents: [tableText]
-    
     // What charts are active
     @Binding var chartDisplays: [Bool]
     
@@ -104,7 +101,7 @@ struct baseAccelChartView: View {
                     .opacity(0.8)
                 }
             }
-            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
+            .chartXScale(domain: ((displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1)))
         }
     }
 }
@@ -194,41 +191,48 @@ struct magnitudeChartView: View {
     
     var body: some View {
         GroupBox("Magnitudes (m/s2, W)") {
-            Chart {
-                ForEach(displayedData) { data in
-                    LineMark(
-                        x: .value("Time", data.t),
-                        y: .value("Total Count", data.aM)
-                    )
-                    .foregroundStyle(by: .value("Index", "Acceleration Magnitude"))
-                    .interpolationMethod(.cardinal)
-                    .opacity(0.8)
-                    
-                    LineMark(
-                        x: .value("Time", data.t),
-                        y: .value("Total Count", data.adM)
-                    )
-                    .foregroundStyle(by: .value("Index", "Change in A.Magnitude"))
-                    .interpolationMethod(.cardinal)
-                    .opacity(0.8)
-                    LineMark(
-                        x: .value("Time", data.t),
-                        y: .value("Total Count", data.pM)
-                    )
-                    .foregroundStyle(by: .value("Index", "Power Magnitude"))
-                    .interpolationMethod(.cardinal)
-                    .opacity(0.8)
-                    
-                    LineMark(
-                        x: .value("Time", data.t),
-                        y: .value("Total Count", data.pdM)
-                    )
-                    .foregroundStyle(by: .value("Index", "Change in P.Magnitude"))
-                    .interpolationMethod(.cardinal)
-                    .opacity(0.8)
+            HStack {
+                Chart {
+                    ForEach(displayedData) { data in
+                        LineMark(
+                            x: .value("Time", data.t),
+                            y: .value("Total Count", data.aM)
+                        )
+                        .foregroundStyle(by: .value("Index", "Acceleration Magnitude"))
+                        .interpolationMethod(.cardinal)
+                        .opacity(0.8)
+                        
+                        LineMark(
+                            x: .value("Time", data.t),
+                            y: .value("Total Count", data.adM)
+                        )
+                        .foregroundStyle(by: .value("Index", "Change in A.Magnitude"))
+                        .interpolationMethod(.cardinal)
+                        .opacity(0.8)
+                    }
                 }
+                .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
+                Chart {
+                    ForEach(displayedData) { data in
+                        LineMark(
+                            x: .value("Time", data.t),
+                            y: .value("Total Count", data.pM)
+                        )
+                        .foregroundStyle(by: .value("Index", "Power Magnitude"))
+                        .interpolationMethod(.cardinal)
+                        .opacity(0.8)
+                        
+                        LineMark(
+                            x: .value("Time", data.t),
+                            y: .value("Total Count", data.pdM)
+                        )
+                        .foregroundStyle(by: .value("Index", "Change in P.Magnitude"))
+                        .interpolationMethod(.cardinal)
+                        .opacity(0.8)
+                    }
+                }
+                .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
             }
-            .chartXScale(domain: (displayedData.first?.t ?? 0) ... (displayedData.last?.t ?? 1))
         }
     }
 }

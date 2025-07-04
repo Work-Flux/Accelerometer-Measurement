@@ -39,7 +39,7 @@ struct tableView: View {
     
     var body: some View {
         HStack {
-            restrictedMenuSelection(
+            restrictedMenuSelection( // Defined in ContentView
                 menuName: "Select Columns",
                 valueLimit: 3,
                 boolArray: $tableDisplays
@@ -51,9 +51,12 @@ struct tableView: View {
             .buttonStyle(.bordered)
         }
         
+        // Find the number of columns that need to be displayed given the selected table entries
         let tableSet = zip(tableDisplays, dataEntryCount)
         let tableCount: Int = tableSet.map{($0 ? 1 : 0) * $1}.reduce(0, +)
         let columns: [GridItem] = Array(repeating: GridItem(.flexible()), count: addedValueCount + tableCount)
+        
+        // Setup column headers
         LazyVGrid(columns: columns) {
             Text("Time")
             if tableDisplays[0] {
@@ -87,6 +90,7 @@ struct tableView: View {
             }
         }
         
+        // Scrollable selection for entire table data
         ScrollView{
             LazyVGrid(columns: columns) {
                 ForEach(tableContents) { data in

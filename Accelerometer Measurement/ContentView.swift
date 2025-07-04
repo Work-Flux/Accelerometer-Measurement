@@ -25,12 +25,11 @@ import CoreMotion
  TODO: Check velocity having negative trend on one axis
     Gravity not properly removed?
     Switched to deviceMotion user updates instead of raw accel but issue still present, readout seems less stable
- TODO: Crashes due to memory use when stopping recording after couple minutes
  TODO: Add catch for setting timestep to <=0
  */
 
 // Tick rate for timers / accelerometer updates
-let stepTime: Double = 0.1
+let stepTime: Double = 0.01
 
 // How many non-dependant variables exist that are used in displays
 let addedValueCount: Int = 1
@@ -72,6 +71,8 @@ struct recordedData: Identifiable {
     // Voltage from current
     let v: Double
     
+    let segment: [String]
+    
     let id = UUID()
     
     init(valueRange: [Double], pastVelocity: [Double], pastMagnitudes: [Double], currentSettings: [String : Double]) {
@@ -105,7 +106,31 @@ struct recordedData: Identifiable {
         
         self.i = sqrt(self.pM * currentSettings["Resistance"]!)
         self.v = i * currentSettings["Resistance"]!
+        
+        // Values after decimal to display when formatting into [String]
+        let settingsFormat: String = "%.\(String(Int(currentSettings["TableValueLength"] ?? 3)))f"
+        
+        self.segment = [
+            String(format: "%.1f", t),
+            String(format: settingsFormat, self.aX),
+            String(format: settingsFormat, self.aY),
+            String(format: settingsFormat, self.aZ),
+            String(format: settingsFormat, self.vX),
+            String(format: settingsFormat, self.vY),
+            String(format: settingsFormat, self.vZ),
+            String(format: settingsFormat, self.pX * 1000) + "e-3",
+            String(format: settingsFormat, self.pY * 1000) + "e-3",
+            String(format: settingsFormat, self.pZ * 1000) + "e-3",
+            String(format: settingsFormat, self.aM),
+            String(format: settingsFormat, self.adM),
+            String(format: settingsFormat, self.pM),
+            String(format: settingsFormat, self.pdM),
+            String(format: settingsFormat, self.i),
+            String(format: settingsFormat, self.v)
+        ]
     }
+    
+    
 }
 
 // Stores all data which can be displayed
@@ -131,7 +156,7 @@ class settingsData: ObservableObject {
         
         "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
         
-        "ChartLength" : 2, // Number of seconds of data to display
+        "ChartLength" : 10, // Number of seconds of data to display
         "TableValueLength" : 3 // Number of values after the decimal to display"
     ]
     
@@ -156,6 +181,7 @@ class settingsData: ObservableObject {
  TODO: Add initial "press start recording button for charts/tables"
  TODO: Check stopRecording spiking memory
     Assumed to be due to table writing, needs validation
+ TODO: Make duration display updating units (s->m,s->h,m,s)
  */
 
 // Main page view
@@ -168,17 +194,7 @@ struct ContentView: View {
     // Real-time storage for settings data
     @StateObject var settings = settingsData()
     
-    // Recording accelerometer Data
-    @State private var accelerometerData: (x: Double, y: Double, z: Double) = (0, 0, 0)
-    @State private var bulkAccelData: [Double] = [0, 0, 0]
-    
-    // Recording previous timestep's theoretical velocity for storedData calculations
-    @State private var pastVelocity: [Double] = [0, 0, 0]
-    // Recording previous timestep's magnitudes of acceleration and power
-    @State private var pastMagnitudes: [Double] = [0, 0]
-    
-    // Timers for steps
-    @State private var countTimer: Timer?
+    // Timer for steps while recording
     @State private var accelTimer: Timer?
     
     // Duration of current recording
@@ -193,13 +209,9 @@ struct ContentView: View {
     // If we are displaying the table popup
     @State private var tablePopup: Bool = false
     
-    // The update variable
-    @State private var dRand: Double = 0.0
-    
     // Table and export variables
     @State private var csvText: String = ""
     
-    var startingSegment: [String] = Array()
     @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
     
     // What names do the data entries have and how many are displayed per title
@@ -213,7 +225,7 @@ struct ContentView: View {
     var body: some View {
         VStack {
             Text("Accelerometer Data").font(.largeTitle)
-            Text("Duration: \(String(format: "%.1f", counter))s - Update: \(String(format: "%.2f", dRand))")
+            Text("Duration: \(String(format: "%.1f", counter))s")
             HStack {
                 Button("Settings and Infromation", systemImage: "gearshape.fill") {
                     settingsPopup = true
@@ -240,14 +252,11 @@ struct ContentView: View {
                 case false:
                     Button("Start Recording", systemImage: "play.circle.fill") {
                         startRecording()
-                        dRand = Double.random(in: 0.00...1.00)
-                        recording.toggle()
                     }
                     .labelStyle(.iconOnly)
                 case true:
                     Button("End Recording", systemImage: "stop.circle.fill") {
                         stopRecording()
-                        recording.toggle()
                     }
                     .labelStyle(.iconOnly)
                 }
@@ -257,12 +266,10 @@ struct ContentView: View {
             chartView(
                 displayedData: stored.displayData,
                 currentSettings: settings.currentSettings,
-                tableContents: $tableContents,
                 chartDisplays: $chartDisplays
             )
             
-            // Add the tables to use the real-time data
-            // TODO: Add toggle to show tables when recording is stopped
+            // Add the tables to use the data when processed after recording
             switch recording {
             case false:
                 Button("Show Tables") {
@@ -292,20 +299,26 @@ struct ContentView: View {
         // Clear previous values
         tableContents.removeAll()
         stored.displayData.removeAll()
+        csvText.removeAll()
         counter = 0.0
+        
+        recording = true
+        
+        // Recording previous timestep's theoretical velocity for storedData calculations
+        var pastVelocity: [Double] = [0, 0, 0]
+        // Recording previous timestep's magnitudes of acceleration and power
+        var pastMagnitudes: [Double] = [0, 0]
+        
+        // Recording accelerometer Data
+        var bulkAccelData: [Double] = [0, 0, 0]
         
         let stepTime: Double = settings.currentSettings["StepTime"] ?? 0.1
         
-        // Start timer according to set values
-        countTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
-            counter += stepTime
-            dRand = Double.random(in: 0.00...1.00)
-        }
-        
         // Start recording accelerometer updates
-      if motionManager.isDeviceMotionAvailable {
+        if motionManager.isDeviceMotionAvailable {
             self.motionManager.deviceMotionUpdateInterval = stepTime
             accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
+                counter += stepTime
                 motionManager.startDeviceMotionUpdates(to: .main) {
                     (data, _) in guard let accelerometerData = data else { return }
                     bulkAccelData = [
@@ -335,10 +348,10 @@ struct ContentView: View {
                     ]
                 }
             }
-        }
-        // Only for preview in development
-        else {
+        } else { // Should only be used for Xcode preview or similar
             accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
+                counter += stepTime
+                
                 bulkAccelData = [
                     counter,
                     Double.random(in: -1.000...1.000),
@@ -375,48 +388,19 @@ struct ContentView: View {
     func stopRecording() {
         // Stop updates and timers
         self.motionManager.stopDeviceMotionUpdates()
-        countTimer?.invalidate()
-        countTimer = nil
         
         accelTimer?.invalidate()
         accelTimer = nil
         
+        recording = false
+        
         // Tablulate data
         // TODO: p/ke not going to .3 or adding e-3 (FOUND: In specific chart for values they are redefined)
         
-        // Values after decimal to display
-        let settingsFormat = "%.\(String(Int(settings.currentSettings["TableValueLength"] ?? 3)))f"
-        
-        for (i, _) in stored.displayData.enumerated() {
-            let timeString = String(format: "%.1f", stored.displayData[i].t)
-            
-            // Adding and formatting variables
-            let aXString = String(format: settingsFormat, stored.displayData[i].aX)
-            let aYString = String(format: settingsFormat, stored.displayData[i].aY)
-            let aZString = String(format: settingsFormat, stored.displayData[i].aZ)
-            
-            let vXString = String(format: settingsFormat, stored.displayData[i].vX)
-            let vYString = String(format: settingsFormat, stored.displayData[i].vY)
-            let vZString = String(format: settingsFormat, stored.displayData[i].vZ)
-            
-            let pXString = String(format: settingsFormat, stored.displayData[i].pX * 1000) + "e-3"
-            let pYString = String(format: settingsFormat, stored.displayData[i].pY * 1000) + "e-3"
-            let pZString = String(format: settingsFormat, stored.displayData[i].pZ * 1000) + "e-3"
-            
-            let aMString = String(format: settingsFormat, stored.displayData[i].aM)
-            let adMString = String(format: settingsFormat, stored.displayData[i].adM)
-            let pMString = String(format: settingsFormat, stored.displayData[i].pM)
-            let pdMString = String(format: settingsFormat, stored.displayData[i].pdM)
-            
-            let iString = String(format: settingsFormat, stored.displayData[i].i)
-            let vString = String(format: settingsFormat, stored.displayData[i].v)
-            
-            // Saving row
-            let segment: [String] = [timeString, aXString, aYString, aZString, vXString, vYString, vZString, pXString, pYString, pZString, aMString, adMString, pMString, pdMString, iString, vString]
-            
-            csvText += segment.joined(separator: ",") + "\n"
-            
-            tableContents.append(tableText(inputValues: segment))
+        // Saving the recorded data for each timeStep into the table and csv
+        for dataSet in stored.displayData {
+            tableContents.append(tableText(inputValues: dataSet.segment))
+            csvText += dataSet.segment.joined(separator: ",") + "\n"
         }
     }
 }
