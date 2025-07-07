@@ -17,8 +17,14 @@ import Charts
  
  TODO: Make charts tappable to pop up expanded and scrollable view of the selected one
     Possible resolution to issue of chart viwability at high durations of data collection
- TODO: Possible re-write to only trigger chart update on tick to add latest, not write it all every time?
+ TODO: Possible re-write to only trigger chart update on tick to add latest
  TODO: Figure out way to have lineMarks as structs / similar to reduce copied code for each chart
+ 
+ FIXME: When tables are open it disrupts the limited domain range display + when device is turned off->on
+    Also appears to disrupt the interpoolation
+    When stopped it continues subtracting points until only one is left
+    Eventually fixes itself
+        Maybe errors in buffer?
  */
 
 // Struct for displaying charts
@@ -33,12 +39,8 @@ struct chartView: View {
     @Binding var chartDisplays: [Bool]
     
     // Limits the amount of rendered data to the number of seconds selected in settings
-    private var dataRange: Int {
-        Int((currentSettings["ChartLength"] ?? 10) / (currentSettings["StepTime"] ?? 0.1))
-    }
-    private var data: [recordedData] {
-        Array(displayedData.suffix(dataRange))
-    }
+    private var dataRange: Int { Int((currentSettings["ChartLength"] ?? 10) / (currentSettings["StepTime"] ?? 0.1)) }
+    private var data: [recordedData] { Array(displayedData.suffix(dataRange)) }
     
     
     var body: some View {

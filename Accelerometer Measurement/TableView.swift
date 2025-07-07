@@ -19,7 +19,13 @@ import SwiftUI
     Possibly seperate out chart generation into new function
  TODO: Try and find more elegent method of display and variable assignment
     Horizontal line between titles and data
- TODO: Display in pages/add jump option?
+ 
+ FIXME: Power data in exponential form is one digit too much for display + when main numbers go over one digit before the decimal
+    Current method is non-adaptive to changing display sizes or increasingly large numbers
+    Possible auto-conversion if over certain digit-count?
+ FIXME: Too CPU intensive when tables are open at large datacounts
+    Add pages?
+ FIXME: Tables display multiple entries at the same timestamp when at high cpu usage (117.6, 117.6 ...)
  */
 
 // Struct for displaying tables
@@ -27,8 +33,14 @@ struct tableView: View {
     // The settings data
     var currentSettings: [String : Double]
     
-    // What is the contents of the table
-    @Binding var tableContents: [tableText]
+    private var unwrappedLength: Int {
+        Int(currentSettings["TableValueLength"] ?? 3)
+    }
+    
+    private let tableDataSize: CGFloat = 10
+    
+    // The passed external data that is displayed
+    @Binding var displayedData: [recordedData]
     
     // What number of entries are under each table group selection, and which ones are active
     let dataEntryCount: [Int]
@@ -41,7 +53,7 @@ struct tableView: View {
         HStack {
             restrictedMenuSelection( // Defined in ContentView
                 menuName: "Select Columns",
-                valueLimit: 3,
+                valueLimit: 2,
                 boolArray: $tableDisplays
             )
             Button("Hide Table") {
@@ -54,7 +66,7 @@ struct tableView: View {
         // Find the number of columns that need to be displayed given the selected table entries
         let tableSet = zip(tableDisplays, dataEntryCount)
         let tableCount: Int = tableSet.map{($0 ? 1 : 0) * $1}.reduce(0, +)
-        let columns: [GridItem] = Array(repeating: GridItem(.flexible()), count: addedValueCount + tableCount)
+        let columns: [GridItem] = [GridItem(.flexible(), spacing: 2)] + Array(repeating: GridItem(.flexible(), spacing: 4), count: tableCount)
         
         // Setup column headers
         LazyVGrid(columns: columns) {
@@ -93,37 +105,39 @@ struct tableView: View {
         // Scrollable selection for entire table data
         ScrollView{
             LazyVGrid(columns: columns) {
-                ForEach(tableContents) { data in
-                    Text(data.timeString)
+                ForEach(displayedData) { data in
+                    formattedTableText(text: data.t.formatted(.number.precision(.fractionLength(1))), size: tableDataSize)
+                    
                     if tableDisplays[0] {
-                        Text(data.aXString)
-                        Text(data.aYString)
-                        Text(data.aZString)
+                        formattedTableText(text: data.aX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.aY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.aZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
                     }
                     if tableDisplays[1] {
-                        Text(data.vXString)
-                        Text(data.vYString)
-                        Text(data.vZString)
+                        formattedTableText(text: data.vX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.vY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.vZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
                     }
                     if tableDisplays[2] {
-                        Text(data.pXString)
-                        Text(data.pYString)
-                        Text(data.pZString)
+                        formattedTableText(text: data.pX.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.pY.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.pZ.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
                     }
                     if tableDisplays[3] {
-                        Text(data.aMString)
-                        Text(data.adMString)
-                        Text(data.pMString)
-                        Text(data.pdMString)
+                        formattedTableText(text: data.aM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.adM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.pM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.pdM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
                     }
                     if tableDisplays[4] {
-                        Text(data.iString)
-                        Text(data.vString)
+                        formattedTableText(text: data.i.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        formattedTableText(text: data.v.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
                     }
                 }
             }
             .padding()
         }
+        .defaultScrollAnchor(UnitPoint.bottom)
     }
 }
 
@@ -171,5 +185,33 @@ struct tableText: Identifiable {
         self.pdMString = inputValues[13]
         self.iString = inputValues[14]
         self.vString = inputValues[15]
+    }
+}
+
+extension Double {
+    func formatSignedPrecision(precision: Int) -> String {
+        self.formatted(.number
+            .precision(.fractionLength(precision))
+            .sign(strategy: .always(includingZero: true)))
+    }
+    
+    func formatSignedExponential(precision: Int) -> String {
+        self.formatted(.number
+            .precision(.fractionLength(precision - 2))
+            .sign(strategy: .always(includingZero: true))
+            .notation(.scientific))
+    }
+}
+
+struct formattedTableText: View {
+    let text: String
+    let size: CGFloat
+    
+    var body: some View {
+        Text(text)
+            .monospaced()
+            .font(.system(size: size))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        
     }
 }

@@ -23,16 +23,17 @@ import CoreMotion
         Real-time settings data which impacts visuals and equations
  
  TODO: Check velocity having negative trend on one axis
+ TODO: Add catch for setting timestep to <=0
+    
+ FIXME: Velocity has negative trend on axis parallel to weight force
     Gravity not properly removed?
     Switched to deviceMotion user updates instead of raw accel but issue still present, readout seems less stable
- TODO: Add catch for setting timestep to <=0
+    Appears to have a similar trend when in other orientations
+    Other axes have very minor trends up/down but one is the outlier
  */
 
 // Tick rate for timers / accelerometer updates
 let stepTime: Double = 0.01
-
-// How many non-dependant variables exist that are used in displays
-let addedValueCount: Int = 1
 
 // How many dependant variables exist that are used in displays
 let recordedValueCount: Int = 15
@@ -71,8 +72,6 @@ struct recordedData: Identifiable {
     // Voltage from current
     let v: Double
     
-    let segment: [String]
-    
     let id = UUID()
     
     init(valueRange: [Double], pastVelocity: [Double], pastMagnitudes: [Double], currentSettings: [String : Double]) {
@@ -106,28 +105,6 @@ struct recordedData: Identifiable {
         
         self.i = sqrt(self.pM * currentSettings["Resistance"]!)
         self.v = i * currentSettings["Resistance"]!
-        
-        // Values after decimal to display when formatting into [String]
-        let settingsFormat: String = "%.\(String(Int(currentSettings["TableValueLength"] ?? 3)))f"
-        
-        self.segment = [
-            String(format: "%.1f", t),
-            String(format: settingsFormat, self.aX),
-            String(format: settingsFormat, self.aY),
-            String(format: settingsFormat, self.aZ),
-            String(format: settingsFormat, self.vX),
-            String(format: settingsFormat, self.vY),
-            String(format: settingsFormat, self.vZ),
-            String(format: settingsFormat, self.pX * 1000) + "e-3",
-            String(format: settingsFormat, self.pY * 1000) + "e-3",
-            String(format: settingsFormat, self.pZ * 1000) + "e-3",
-            String(format: settingsFormat, self.aM),
-            String(format: settingsFormat, self.adM),
-            String(format: settingsFormat, self.pM),
-            String(format: settingsFormat, self.pdM),
-            String(format: settingsFormat, self.i),
-            String(format: settingsFormat, self.v)
-        ]
     }
     
     
@@ -178,7 +155,6 @@ class settingsData: ObservableObject {
     Possibly integrate into endRecording or settings page
  TODO: Check viability of having recording function in the ContentView body
  TODO: Meters per second
- TODO: Add initial "press start recording button for charts/tables"
  TODO: Check stopRecording spiking memory
     Assumed to be due to table writing, needs validation
  TODO: Make duration display updating units (s->m,s->h,m,s)
@@ -212,8 +188,6 @@ struct ContentView: View {
     // Table and export variables
     @State private var csvText: String = ""
     
-    @State private var tableContents: [tableText] = [tableText(inputValues: Array(repeating: "0", count: addedValueCount + recordedValueCount))]
-    
     // What names do the data entries have and how many are displayed per title
     static let dataEntries: [String] = ["Acclerometer Data (m/s2)", "Velocity (m/s)", "Power per Axis (W)", "Magnitudes (m/s2, W)", "Circuit Values (A, V)"]
     static let dataEntryCount: [Int] = [3, 3, 3, 4, 2]
@@ -225,19 +199,17 @@ struct ContentView: View {
     var body: some View {
         VStack {
             Text("Accelerometer Data").font(.largeTitle)
-            Text("Duration: \(String(format: "%.1f", counter))s")
             HStack {
-                Button("Settings and Infromation", systemImage: "gearshape.fill") {
-                    settingsPopup = true
-                }
-                .labelStyle(.iconOnly)
-                .popover(isPresented: $settingsPopup) {
-                    settingView(
-                        currentSettings: $settings.currentSettings,
-                        defaultSettings: settings.defaultSettings,
-                        popup: $settingsPopup
-                    )
-                }
+                // Opens settings popup page
+                Button("Settings and Infromation", systemImage: "gearshape.fill") { settingsPopup = true }
+                    .labelStyle(.iconOnly)
+                    .popover(isPresented: $settingsPopup) {
+                        settingView(
+                            currentSettings: $settings.currentSettings,
+                            defaultSettings: settings.defaultSettings,
+                            popup: $settingsPopup
+                        )
+                    }
                 
                 // Lets user choose charts/tables to display according to limitations
                 restrictedMenuSelection(
@@ -246,21 +218,18 @@ struct ContentView: View {
                     boolArray: $chartDisplays
                 )
                 
-                
                 // Turns on / off the accelerometer recording, and exports results
                 switch recording {
                 case false:
-                    Button("Start Recording", systemImage: "play.circle.fill") {
-                        startRecording()
-                    }
-                    .labelStyle(.iconOnly)
+                    Button("Start Recording", systemImage: "play.circle.fill") { startRecording() }
+                        .labelStyle(.iconOnly)
                 case true:
-                    Button("End Recording", systemImage: "stop.circle.fill") {
-                        stopRecording()
-                    }
-                    .labelStyle(.iconOnly)
+                    Button("End Recording", systemImage: "stop.circle.fill") { stopRecording() }
+                        .labelStyle(.iconOnly)
                 }
             }
+            
+            Text("Duration: \(String(format: "%.1f", counter))s")
             
             // Add the charts to use the real-time data
             chartView(
@@ -270,34 +239,28 @@ struct ContentView: View {
             )
             
             // Add the tables to use the data when processed after recording
-            switch recording {
-            case false:
-                Button("Show Tables") {
-                    tablePopup = true
-                }
+            Button("Show Tables") { tablePopup = true }
                 .popover(isPresented: $tablePopup) {
                     tableView(
                         currentSettings: settings.currentSettings,
-                        tableContents: $tableContents,
+                        displayedData: $stored.displayData,
                         dataEntryCount: ContentView.dataEntryCount,
                         tableDisplays: $tableDisplays,
                         popup: $tablePopup
                     )
                 }
-            case true:
-                EmptyView()
-            }
         }
         .padding()
     }
     
     /*
-     Records data from the built-in accelerometer
-     Computes magnitude and change in magnitude
+     Resets stored values
+     Starts the motionManager and records acceleration if it is available
+     Generates random data for testing if it is not
+     Updates stored past values for calculation of changes in values
      */
     func startRecording() {
         // Clear previous values
-        tableContents.removeAll()
         stored.displayData.removeAll()
         csvText.removeAll()
         counter = 0.0
@@ -377,13 +340,16 @@ struct ContentView: View {
                     currentRecordedData.aM,
                     currentRecordedData.pM
                 ]
+                
+                // Tablulate new data
+                // TODO: p/ke not going to .3 or adding e-3 (FOUND: In specific chart for values they are redefined)
             }
         }
     }
     
     /*
      Stops timers and accelerometer recordings
-     Tabulates data for display and exporting
+     Sends the condensed form of recordedData at each tick for tabulation and exporting
      */
     func stopRecording() {
         // Stop updates and timers
@@ -393,15 +359,6 @@ struct ContentView: View {
         accelTimer = nil
         
         recording = false
-        
-        // Tablulate data
-        // TODO: p/ke not going to .3 or adding e-3 (FOUND: In specific chart for values they are redefined)
-        
-        // Saving the recorded data for each timeStep into the table and csv
-        for dataSet in stored.displayData {
-            tableContents.append(tableText(inputValues: dataSet.segment))
-            csvText += dataSet.segment.joined(separator: ",") + "\n"
-        }
     }
 }
 
@@ -419,7 +376,8 @@ struct restrictedMenuSelection: View {
     var body: some View {
         Menu(menuName) {
             ForEach(0..<ContentView.dataEntries.count, id: \.self) { i in
-                Toggle(ContentView.dataEntries[i], isOn: $boolArray[i]).disabled(valueLimit == boolArray.filter {$0}.count && !boolArray[i])
+                Toggle(ContentView.dataEntries[i], isOn: $boolArray[i])
+                    .disabled(valueLimit == boolArray.filter {$0}.count && !boolArray[i])
             }
         }
         .menuActionDismissBehavior(.disabled)
