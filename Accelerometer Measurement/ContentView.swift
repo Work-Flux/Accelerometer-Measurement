@@ -179,11 +179,11 @@ struct ContentView: View {
     // If we are recording the accelerometer data
     @State private var recording: Bool = false
     
-    // If we are displaying the settings popup
-    @State private var settingsPopup: Bool = false
+    // If we are displaying the settings sheet
+    @State private var settingsSheet: Bool = false
     
-    // If we are displaying the table popup
-    @State private var tablePopup: Bool = false
+    // If we are displaying the table sheet
+    @State private var tableSheet: Bool = false
     
     // Table and export variables
     @State private var csvText: String = ""
@@ -200,14 +200,14 @@ struct ContentView: View {
         VStack {
             Text("Accelerometer Data").font(.largeTitle)
             HStack {
-                // Opens settings popup page
-                Button("Settings and Infromation", systemImage: "gearshape.fill") { settingsPopup = true }
+                // Opens settings sheet page
+                Button("Settings and Infromation", systemImage: "gearshape.fill") { settingsSheet = true }
                     .labelStyle(.iconOnly)
-                    .popover(isPresented: $settingsPopup) {
+                    .sheet(isPresented: $settingsSheet) {
                         settingView(
                             currentSettings: $settings.currentSettings,
                             defaultSettings: settings.defaultSettings,
-                            popup: $settingsPopup
+                            sheet: $settingsSheet
                         )
                     }
                 
@@ -239,14 +239,14 @@ struct ContentView: View {
             )
             
             // Add the tables to use the data when processed after recording
-            Button("Show Tables") { tablePopup = true }
-                .popover(isPresented: $tablePopup) {
+            Button("Show Tables") { tableSheet = true }
+                .sheet(isPresented: $tableSheet) {
                     tableView(
                         currentSettings: settings.currentSettings,
                         displayedData: $stored.displayData,
                         dataEntryCount: ContentView.dataEntryCount,
                         tableDisplays: $tableDisplays,
-                        popup: $tablePopup
+                        sheet: $tableSheet
                     )
                 }
         }

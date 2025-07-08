@@ -17,10 +17,12 @@ import SwiftUI
  
  TODO: Make display settings
  TODO: Check how implemented textField clarifier in numericInputView interacts with macOS titling
- TODO: Check init for setting default displayed values instead of onAppear as manual values are not displayed when popup re-appears
+ TODO: Check init for setting default displayed values instead of onAppear as manual values are not displayed when sheet re-appears
  TODO: Add single-choice list for selecting starting velocity direction
     Currently assumed to be y
     Might need to add orientator for axes
+ 
+ FIXME: First interaction with textfields is delayed
  */
 
 // Settings pop-up page
@@ -29,10 +31,13 @@ struct settingView: View {
     @Binding var currentSettings: [String : Double]
     let defaultSettings: [String : Double]
     
-    // If the popup is active
-    @Binding var popup: Bool
+    // If the sheet is active
+    @Binding var sheet: Bool
     
-    @State private var resistance: Double = 1
+    // For dynamic resizing of settings check sheet
+    @State var checksheetHight: CGFloat = .zero
+    // For opening the visual check for settings
+    @State var settingsChecksheet: Bool = false
     
     var body: some View {
         Form {
@@ -101,17 +106,37 @@ struct settingView: View {
                 textFieldPlaceholder: "Digits shown after the decimal"
             )
             
-            // Button to close settings
-            Button("Close Settings") {
-                popup = false
+            Section {
+                Button("Check Settings") { settingsChecksheet = true }
+                    .sheet(isPresented: $settingsChecksheet) {
+                        VStack {
+                            ForEach(currentSettings.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                                Text("\(key): \(value.formatted(.number))")
+                            }
+                            
+                            Divider()
+                            
+                            Button("Close") {
+                                settingsChecksheet = false
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding()
+                        .fixedSize(horizontal: false, vertical: true)
+                        .modifier(GetHeightModifier(height: $checksheetHight))
+                        .presentationDetents([.height(checksheetHight)])
+                    }
+                Button("Close Settings") {
+                    sheet = false
+                }
             }
-        }
-        
-        VStack {
-            Text("Settings Check").font(.title)
-            Text("Mass (g) is \(String(format: "%.3e", currentSettings["Mass"] ?? 1))") // Mass in kg
-            Text("Starting Velocity (m/s) is  \(String(format: "%.3e", currentSettings["V0"] ?? 1))") // Assumed starting velocity in m/s
-            Text("Resistance (Ω) is  \(String(format: "%.3e", currentSettings["Resistance"] ?? 1))") // Resistance displayed in ohms
+            
+            Section {
+                Button("Reset Settings", role: .destructive) {
+                    currentSettings = defaultSettings
+                }
+                
+            }
         }
     }
 }
@@ -167,6 +192,7 @@ struct numericInputView: View {
         self._externalDictionary = externalDictionary
         self.dictionaryKey = dictionaryKey
         self.defaultDictionary = defaultDictionary
+        self.userInputValue = defaultDictionary[dictionaryKey]
         self.useToggle = useToggle
         self.toggleValue = toggleValue
         self.toggleText = toggleText
@@ -200,11 +226,11 @@ struct numericInputView: View {
                         .foregroundColor(!toggleValue ? .gray : .primary)
                         .keyboardType(.decimalPad)
                         .focused($textFieldFocused)
-                        .onAppear {
-                            userInputValue = defaultDictionary[dictionaryKey]
-                        }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
+                        }
+                        .onAppear {
+                            userInputValue = toggleValue ? externalDictionary[dictionaryKey] ?? defaultDictionary[dictionaryKey]! : defaultDictionary[dictionaryKey]!
                         }
                     if textFieldFocused {
                         Button("Submit") {
@@ -219,11 +245,11 @@ struct numericInputView: View {
                     TextField(textFieldPlaceholder, value: $userInputValue, format: .number)
                         .keyboardType(.decimalPad)
                         .focused($textFieldFocused)
-                        .onAppear {
-                            userInputValue = defaultDictionary[dictionaryKey]
-                        }
                         .onSubmit {
                             externalDictionary[dictionaryKey] = userInputValue
+                        }
+                        .onAppear {
+                            userInputValue = externalDictionary[dictionaryKey] ?? defaultDictionary[dictionaryKey]!
                         }
                     if textFieldFocused {
                         Button("Submit") {
@@ -237,9 +263,44 @@ struct numericInputView: View {
     }
 }
 
+struct GetHeightModifier: ViewModifier {
+    @Binding var height: CGFloat
+
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { geo -> Color in
+                DispatchQueue.main.async {
+                    height = geo.size.height
+                }
+                return Color.clear
+            }
+        )
+    }
+}
+
 #Preview {
-    @Previewable @State var popup = true
-    @Previewable @State var currentSettings: [String: Double] = [:]
-    @Previewable let defaultSettings: [String: Double] = [:]
-    settingView(currentSettings: $currentSettings, defaultSettings: defaultSettings, popup: $popup)
+    @Previewable @State var sheet = true
+    @Previewable let defaultSettings: [String: Double] = [
+        "Mass" : 1, // Mass in kg
+        "V0" : 0, // Starting velocity in m/s
+        "Resistance" : 0.1, // Circuit resistance in Ω
+        
+        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
+        
+        "ChartLength" : 10, // Number of seconds of data to display
+        "TableValueLength" : 3 // Number of values after the decimal to display"
+    ]
+    
+    @Previewable @State var currentSettings: [String: Double] = [
+        "Mass" : 1, // Mass in kg
+        "V0" : 0, // Starting velocity in m/s
+        "Resistance" : 0.1, // Circuit resistance in Ω
+        
+        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
+        
+        "ChartLength" : 10, // Number of seconds of data to display
+        "TableValueLength" : 3 // Number of values after the decimal to display"
+    ]
+    
+    settingView(currentSettings: $currentSettings, defaultSettings: defaultSettings, sheet: $sheet)
 }

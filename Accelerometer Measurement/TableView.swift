@@ -23,9 +23,10 @@ import SwiftUI
  FIXME: Power data in exponential form is one digit too much for display + when main numbers go over one digit before the decimal
     Current method is non-adaptive to changing display sizes or increasingly large numbers
     Possible auto-conversion if over certain digit-count?
- FIXME: Too CPU intensive when tables are open at large datacounts
+ FIXME: Too CPU+Memory intensive when tables are open at large datacounts
     Add pages?
  FIXME: Tables display multiple entries at the same timestamp when at high cpu usage (117.6, 117.6 ...)
+ FIXME: Header values for tables not aligned with interior data
  */
 
 // Struct for displaying tables
@@ -46,8 +47,8 @@ struct tableView: View {
     let dataEntryCount: [Int]
     @Binding var tableDisplays: [Bool]
     
-    // If the popup is active
-    @Binding var popup: Bool
+    // If the sheet is active
+    @Binding var sheet: Bool
     
     var body: some View {
         HStack {
@@ -57,7 +58,7 @@ struct tableView: View {
                 boolArray: $tableDisplays
             )
             Button("Hide Table") {
-                popup = false
+                sheet = false
             }
             .padding()
             .buttonStyle(.bordered)
