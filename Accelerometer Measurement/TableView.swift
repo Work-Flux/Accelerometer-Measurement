@@ -20,11 +20,6 @@ import SwiftUI
  TODO: Try and find more elegent method of display and variable assignment
     Horizontal line between titles and data
  
- FIXME: Power data in exponential form is one digit too much for display + when main numbers go over one digit before the decimal
-    Current method is non-adaptive to changing display sizes or increasingly large numbers
-    Possible auto-conversion if over certain digit-count?
- FIXME: Too CPU+Memory intensive when tables are open at large datacounts
-    Add pages?
  FIXME: Tables display multiple entries at the same timestamp when at high cpu usage (117.6, 117.6 ...)
  FIXME: Header values for tables not aligned with interior data
  */
@@ -64,75 +59,72 @@ struct tableView: View {
             .buttonStyle(.bordered)
         }
         
-        // Find the number of columns that need to be displayed given the selected table entries
-        let tableSet = zip(tableDisplays, dataEntryCount)
-        let tableCount: Int = tableSet.map{($0 ? 1 : 0) * $1}.reduce(0, +)
-        let columns: [GridItem] = [GridItem(.flexible(), spacing: 2)] + Array(repeating: GridItem(.flexible(), spacing: 4), count: tableCount)
-        
         // Setup column headers
-        LazyVGrid(columns: columns) {
-            Text("Time")
+        HStack() {
+            fittedText(text: "Time")
             if tableDisplays[0] {
-                Text("aX")
-                Text("aY")
-                Text("aZ")
+                fittedText(text: "aX")
+                fittedText(text: "aY")
+                fittedText(text: "aZ")
             }
             
             if tableDisplays[1] {
-                Text("vX")
-                Text("vY")
-                Text("vZ")
+                fittedText(text: "vX")
+                fittedText(text: "vY")
+                fittedText(text: "vZ")
             }
             
             if tableDisplays[2] {
-                Text("pX")
-                Text("pY")
-                Text("pZ")
+                fittedText(text: "pX")
+                fittedText(text: "pY")
+                fittedText(text: "pZ")
             }
             
             if tableDisplays[3] {
-                Text("a.M")
-                Text("∆a.M")
-                Text("p.M")
-                Text("∆p.M")
+                fittedText(text: "a.M")
+                fittedText(text: "∆a.M")
+                fittedText(text: "p.M")
+                fittedText(text: "∆p.M")
             }
             
             if tableDisplays[4] {
-                Text("I")
-                Text("V")
+                fittedText(text: "I")
+                fittedText(text: "V")
             }
         }
         
         // Scrollable selection for entire table data
         ScrollView{
-            LazyVGrid(columns: columns) {
+            LazyVStack(alignment: .leading) {
                 ForEach(displayedData) { data in
-                    formattedTableText(text: data.t.formatted(.number.precision(.fractionLength(1))), size: tableDataSize)
-                    
-                    if tableDisplays[0] {
-                        formattedTableText(text: data.aX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.aY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.aZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                    }
-                    if tableDisplays[1] {
-                        formattedTableText(text: data.vX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.vY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.vZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                    }
-                    if tableDisplays[2] {
-                        formattedTableText(text: data.pX.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.pY.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.pZ.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
-                    }
-                    if tableDisplays[3] {
-                        formattedTableText(text: data.aM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.adM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.pM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.pdM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                    }
-                    if tableDisplays[4] {
-                        formattedTableText(text: data.i.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                        formattedTableText(text: data.v.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                    HStack() {
+                        formattedTableText(text: data.t.formatted(.number.precision(.fractionLength(1))), size: tableDataSize)
+                        
+                        if tableDisplays[0] {
+                            formattedTableText(text: data.aX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.aY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.aZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        }
+                        if tableDisplays[1] {
+                            formattedTableText(text: data.vX.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.vY.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.vZ.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        }
+                        if tableDisplays[2] {
+                            formattedTableText(text: data.pX.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pY.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pZ.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                        }
+                        if tableDisplays[3] {
+                            formattedTableText(text: data.aM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.adM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pdM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        }
+                        if tableDisplays[4] {
+                            formattedTableText(text: data.i.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.v.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                        }
                     }
                 }
             }
@@ -214,5 +206,14 @@ struct formattedTableText: View {
             .font(.system(size: size))
             .frame(maxWidth: .infinity, alignment: .leading)
         
+    }
+}
+
+struct fittedText: View {
+    let text: String
+    
+    var body: some View {
+        Text(text)
+            .frame(maxWidth: .infinity)
     }
 }
