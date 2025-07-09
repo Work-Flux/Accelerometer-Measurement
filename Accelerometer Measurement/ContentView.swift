@@ -32,12 +32,6 @@ import CoreMotion
     Other axes have very minor trends up/down but one is the outlier
  */
 
-// Tick rate for timers / accelerometer updates
-let stepTime: Double = 0.01
-
-// How many dependant variables exist that are used in displays
-let recordedValueCount: Int = 15
-
 // Stores accelerometer data each tick and calculates additional values from it
 struct recordedData: Identifiable {
     // Range of values recorded each tick
@@ -131,7 +125,7 @@ class settingsData: ObservableObject {
         "V0" : 0, // Starting velocity in m/s
         "Resistance" : 0.1, // Circuit resistance in Ω
         
-        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
+        "tickRate" : 1 / 10, // Tick rate for timers & accelerometer updates
         
         "ChartLength" : 10, // Number of seconds of data to display
         "TableValueLength" : 3 // Number of values after the decimal to display"
@@ -154,10 +148,8 @@ class settingsData: ObservableObject {
  TODO: Add email exporting functionality
     Possibly integrate into endRecording or settings page
  TODO: Check viability of having recording function in the ContentView body
- TODO: Meters per second
- TODO: Check stopRecording spiking memory
-    Assumed to be due to table writing, needs validation
  TODO: Make duration display updating units (s->m,s->h,m,s)
+    Link with table time display
  */
 
 // Main page view
@@ -275,13 +267,13 @@ struct ContentView: View {
         // Recording accelerometer Data
         var bulkAccelData: [Double] = [0, 0, 0]
         
-        let stepTime: Double = settings.currentSettings["StepTime"] ?? 0.1
+        let tickRate: Double = settings.currentSettings["tickRate"] ?? 0.1
         
         // Start recording accelerometer updates
         if motionManager.isDeviceMotionAvailable {
-            self.motionManager.deviceMotionUpdateInterval = stepTime
-            accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
-                counter += stepTime
+            self.motionManager.deviceMotionUpdateInterval = tickRate
+            accelTimer = Timer.scheduledTimer(withTimeInterval: tickRate, repeats: true) { timer in
+                counter += tickRate
                 motionManager.startDeviceMotionUpdates(to: .main) {
                     (data, _) in guard let accelerometerData = data else { return }
                     bulkAccelData = [
@@ -312,8 +304,8 @@ struct ContentView: View {
                 }
             }
         } else { // Should only be used for Xcode preview or similar
-            accelTimer = Timer.scheduledTimer(withTimeInterval: stepTime, repeats: true) { timer in
-                counter += stepTime
+            accelTimer = Timer.scheduledTimer(withTimeInterval: tickRate, repeats: true) { timer in
+                counter += tickRate
                 
                 bulkAccelData = [
                     counter,

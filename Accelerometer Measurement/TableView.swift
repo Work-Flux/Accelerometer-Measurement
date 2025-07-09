@@ -14,14 +14,14 @@ import SwiftUI
     Main struct for displaying tables
     Data storage struct for contents and order of data sent to tables
  
- TODO: Check modification of power data based on changing settings
-    Might need re-generation from endRecording
-    Possibly seperate out chart generation into new function
  TODO: Try and find more elegent method of display and variable assignment
     Horizontal line between titles and data
+ TODO: Make time update to s->m->h
  
  FIXME: Tables display multiple entries at the same timestamp when at high cpu usage (117.6, 117.6 ...)
  FIXME: Header values for tables not aligned with interior data
+    Especially visable at smaller column counts
+        Possibly check .aligned not on header values?
  */
 
 // Struct for displaying tables
@@ -92,6 +92,7 @@ struct tableView: View {
                 fittedText(text: "V")
             }
         }
+        .padding(0.5)
         
         // Scrollable selection for entire table data
         ScrollView{
@@ -118,8 +119,8 @@ struct tableView: View {
                         if tableDisplays[3] {
                             formattedTableText(text: data.aM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
                             formattedTableText(text: data.adM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                            formattedTableText(text: data.pM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
-                            formattedTableText(text: data.pdM.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pM.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
+                            formattedTableText(text: data.pdM.formatSignedExponential(precision: unwrappedLength), size: tableDataSize)
                         }
                         if tableDisplays[4] {
                             formattedTableText(text: data.i.formatSignedPrecision(precision: unwrappedLength), size: tableDataSize)
@@ -215,5 +216,6 @@ struct fittedText: View {
     var body: some View {
         Text(text)
             .frame(maxWidth: .infinity)
+            .font(.system(size: 14))
     }
 }

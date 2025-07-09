@@ -84,6 +84,18 @@ struct settingView: View {
             
             // Changing the number of seconds of data displayed in the overview charts
             numericInputView(
+                headerText: "Tick Rate",
+                externalDictionary: $currentSettings,
+                dictionaryKey: "tickRate",
+                defaultDictionary: defaultSettings,
+                useToggle: false,
+                useToggleSubtext: false,
+                textFieldClarifier: "Seconds (s):",
+                textFieldPlaceholder: "Update rate"
+            )
+            
+            // Changing the number of seconds of data displayed in the overview charts
+            numericInputView(
                 headerText: "Chart Length",
                 externalDictionary: $currentSettings,
                 dictionaryKey: "ChartLength",
@@ -91,7 +103,7 @@ struct settingView: View {
                 useToggle: false,
                 useToggleSubtext: false,
                 textFieldClarifier: "Seconds (s):",
-                textFieldPlaceholder: "Seconds of data to display"
+                textFieldPlaceholder: "Display length"
             )
             
             // How many decimals are displayed in the values within the table pop-up
@@ -280,27 +292,10 @@ struct GetHeightModifier: ViewModifier {
 
 #Preview {
     @Previewable @State var sheet = true
-    @Previewable let defaultSettings: [String: Double] = [
-        "Mass" : 1, // Mass in kg
-        "V0" : 0, // Starting velocity in m/s
-        "Resistance" : 0.1, // Circuit resistance in Ω
-        
-        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
-        
-        "ChartLength" : 10, // Number of seconds of data to display
-        "TableValueLength" : 3 // Number of values after the decimal to display"
-    ]
     
-    @Previewable @State var currentSettings: [String: Double] = [
-        "Mass" : 1, // Mass in kg
-        "V0" : 0, // Starting velocity in m/s
-        "Resistance" : 0.1, // Circuit resistance in Ω
-        
-        "StepTime" : 0.1, // Tick rate for timers / accelerometer updates
-        
-        "ChartLength" : 10, // Number of seconds of data to display
-        "TableValueLength" : 3 // Number of values after the decimal to display"
-    ]
+    @Previewable let defaultSettings: [String: Double] = settingsData().defaultSettings
+    
+    @Previewable @State var currentSettings: [String: Double] = settingsData().currentSettings
     
     settingView(currentSettings: $currentSettings, defaultSettings: defaultSettings, sheet: $sheet)
 }
